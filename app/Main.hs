@@ -28,7 +28,14 @@ fillP obs wgt h = do
 
 
 weight :: MonadIO m => TR m Double
-weight = return 1.0
+weight = float2Double . product
+    <$> sequence
+        [ readBranch "eventWeight"
+        , readBranch "MCEventWeight"
+        , readBranch "PileupWeight"
+        , readBranch "leptonSF"
+        , readBranch "trigSF"
+        ]
 
 ff :: Monad m => [YodaObj -> TR m YodaObj] -> [YodaObj] -> TR m [YodaObj]
 ff fs hs = fmap getZipList . sequence $ ZipList fs <*> ZipList hs
