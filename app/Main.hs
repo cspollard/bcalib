@@ -125,8 +125,14 @@ main = do
 
     fs <- filter (not . null) . lines <$> readFile (infiles args)
 
-    ts <- mapM (ttree "FlavourTagging_Nominal") fs
+    -- TODO
+    -- this folding doesn't need to store histograms from each file
+    -- in memory...
+    hs <- forM fs $ \f -> do
+        putStrLn $ "analyzing file " ++ f
+        t <- ttree "FlavourTagging_Nominal" f
+        runFiller hists t
 
-    hs <- forM ts $ runFiller hists
+    let hs' = foldl1 (liftA2 mergeYO) hs
 
-    BS.writeFile (outfile args) (compress $ encodeLazy hs)
+    BS.writeFile (outfile args) (compress $ encodeLazy hs')
