@@ -7,6 +7,8 @@ import Control.Lens
 import Control.Monad (forM)
 import Control.Applicative
 
+import Foreign.C.String
+
 import Data.Semigroup
 import Data.Maybe (fromMaybe)
 import Data.Vector (Vector)
@@ -20,6 +22,7 @@ import GHC.Float
 
 import Data.YODA.Obj
 import Data.TTree
+import Data.TH1
 import Data.Atlas.Histogramming
 import Data.Atlas.CrossSections
 
@@ -130,6 +133,8 @@ main = do
     -- in memory...
     hs <- forM fs $ \f -> do
         putStrLn $ "analyzing file " ++ f
+        h <- withCString "MetaData_EventCount" $ \hn -> withCString f (th1d hn)
+        print =<< nbinsd h
         t <- ttree "FlavourTagging_Nominal" f
         runFiller hists t
 
