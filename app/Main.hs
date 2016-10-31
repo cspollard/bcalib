@@ -30,7 +30,6 @@ import BCalib.Histograms
 
 data Args = Args { outfile :: String
                  , infiles :: String
-                 , xsecfile :: String
                  } deriving (Show, Generic)
 
 instance ParseRecord Args where
@@ -38,8 +37,6 @@ instance ParseRecord Args where
 main :: IO ()
 main = do
     args <- getRecord "run-hs" :: IO Args
-    xsecs <- fromMaybe (error "failed to parse xsec file.")
-                <$> readXSecFile (xsecfile args)
 
     fs <- filter (not . null) . lines <$> readFile (infiles args)
 
@@ -56,5 +53,4 @@ main = do
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
 
-    print hs'
     BS.writeFile (outfile args) (compress $ encodeLazy hs')
