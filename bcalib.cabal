@@ -20,6 +20,10 @@ executable bcalib
   build-depends:       base == 4.9.*
                      , lens == 4.14.*
                      , vector == 0.11.*
+                     , bytestring == 0.10.*
+                     , cereal == 0.5.*
+                     , zlib == 0.6.*
+                     , optparse-generic == 1.1.*
                      , ttree == 0.2.*
                      , atlas == 0.1.*
                      , histogram-extras == 0.2.*

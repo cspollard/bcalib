@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Main where
 
@@ -6,15 +7,23 @@ import Control.Lens
 import Control.Monad (forM)
 import Control.Applicative
 
-import GHC.Float
 import Data.Semigroup
+import Data.Maybe (fromMaybe)
 import Data.Vector (Vector)
 
-import System.Environment (getArgs)
+import qualified Data.ByteString.Lazy as BS
+import Data.Serialize (encodeLazy)
+import Data.Serialize.ZipList ()
+import Codec.Compression.GZip (compress)
+
+import GHC.Float
 
 import Data.YODA.Obj
 import Data.TTree
 import Data.Atlas.Histogramming
+import Data.Atlas.CrossSections
+
+import Options.Generic
 
 
 newtype Filler m = Filler (ZipList (YodaObj -> TR m YodaObj), ZipList YodaObj)
@@ -101,10 +110,23 @@ hists = mconcat
     , jetEtaH
     ]
 
+data Args = Args { outfile :: String
+                 , infiles :: String
+                 , xsecfile :: String
+                 } deriving (Show, Generic)
+
+instance ParseRecord Args where
+
 main :: IO ()
-main = do (tn:fns) <- getArgs
-          ts <- mapM (ttree tn) fns
+main = do
+    args <- getRecord "run-hs" :: IO Args
+    xsecs <- fromMaybe (error "failed to parse xsec file.")
+                <$> readXSecFile (xsecfile args)
 
-          ns <- forM ts $ runFiller hists
+    fs <- filter (not . null) . lines <$> readFile (infiles args)
 
-          print ns
+    ts <- mapM (ttree "FlavourTagging_Nominal") fs
+
+    hs <- forM ts $ runFiller hists
+
+    BS.writeFile (outfile args) (compress $ encodeLazy hs)
