@@ -38,6 +38,8 @@ executable bcalib
                      , lens == 4.14.*
                      , vector == 0.11.*
                      , bytestring == 0.10.*
+                     , list-transformer == 1.0.*
+                     , containers == 0.5.*
                      , cereal == 0.5.*
                      , zlib == 0.6.*
                      , optparse-generic == 1.1.*

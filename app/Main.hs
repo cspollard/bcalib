@@ -11,6 +11,9 @@ import Control.Applicative
 import Foreign.C.String
 
 import Data.Maybe (fromMaybe)
+import qualified Data.IntMap as IM
+
+import qualified List.Transformer as L
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (encodeLazy)
@@ -48,8 +51,10 @@ main = do
         h <- withCString "MetaData_EventCount" $ \hn -> withCString f (th1d hn)
         ninitial <- entryd h 4
         t <- ttree "FlavourTagging_Nominal" f
-        (ninitial,) <$> runFiller bcalibHists t
+        (L.Cons dsid _) <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
+        (fromEnum dsid,) . (ninitial,) <$> runFiller bcalibHists t
 
-    let hs' = foldl1 (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
+    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
 
+    print hs'
     BS.writeFile (outfile args) (compress $ encodeLazy hs')
