@@ -20,8 +20,8 @@ import Data.Serialize (encodeLazy)
 import Data.Serialize.ZipList ()
 import Codec.Compression.GZip (compress)
 
+import Data.TFile
 import Data.TH1
-import Data.Atlas.CrossSections
 
 import Options.Generic
 
@@ -38,18 +38,19 @@ main :: IO ()
 main = do
     args <- getRecord "run-hs" :: IO Args
 
-    fs <- filter (not . null) . lines <$> readFile (infiles args)
+    fns <- filter (not . null) . lines <$> readFile (infiles args)
 
     -- TODO
     -- this folding doesn't need to store histograms from each file
     -- in memory...
-    hs <- forM fs $ \f -> do
-        putStrLn $ "analyzing file " ++ f
-        h <- withCString "MetaData_EventCount" $ \hn -> withCString f (th1d hn)
+    hs <- forM fns $ \fn -> do
+        putStrLn $ "analyzing file " ++ fn
+        f <- tfileOpen fn
+        h <- tfileGet f "MetaData_EventCount"
         ninitial <- entryd h 4
-        t <- ttree "FlavourTagging_Nominal" f
+        t <- ttree f "FlavourTagging_Nominal"
         (L.Cons dsid _) <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
-        (fromEnum dsid,) . (ninitial,) <$> runFiller bcalibHists t
+        (fromEnum dsid,) . (ninitial,) <$> runFiller bcalibHists t <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
 
