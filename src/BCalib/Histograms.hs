@@ -39,16 +39,6 @@ fillP obs wgt = singleton f
             return $ foldl (\h' x -> over (noted._P1DD) (filling w x) h') h xs
 
 
-weight :: MonadIO m => TR m Double
-weight = float2Double . product
-    <$> sequence
-        [ readBranch "eventWeight"
-        , readBranch "MCEventWeight"
-        , readBranch "PileupWeight"
-        , readBranch "leptonSF"
-        , readBranch "trigSF"
-        ]
-
 
 fillWH :: (MonadIO m, Foldable f) => TR m (f Double) -> YodaObj -> Filler m
 fillWH tr = fillH tr weight
@@ -75,25 +65,6 @@ runFiller (Filler (fs, hs)) = runTTree (ff fs) hs
     where
         ff fs' hs' = sequence $ fs' <*> hs'
 
-muH :: MonadIO m => Filler m
-muH = fillWH tr h
-    where
-        tr = Just . float2Double <$> readBranch "mu"
-        h = yodaHist 100 0 100 "/mu" "$ <\\mu> $" ""
-
-jetEtaH :: MonadIO m => Filler m
-jetEtaH = fillWH tr h
-    where
-        tr :: MonadIO m => TR m (Vector Double)
-        tr = fmap float2Double <$> readBranch "jetsMomEta"
-        h = yodaHist 100 (-3.0) 3.0 "/jeteta" "jet $\\eta$ [GeV]" ""
-
-jetPtH :: MonadIO m => Filler m
-jetPtH = fillWH tr h
-    where
-        tr :: MonadIO m => TR m (Vector Double)
-        tr = fmap float2Double <$> readBranch "jetsMomPt"
-        h = yodaHist 100 0 100000 "/jetpt" "jet $p_{\\mathrm T}$ [GeV]" ""
 
 bcalibHists :: MonadIO m => Filler m
 bcalibHists =
@@ -102,3 +73,24 @@ bcalibHists =
         , jetPtH
         , jetEtaH
         ]
+
+
+muH :: MonadIO m => Filler m
+muH = fillWH tr h
+    where
+        tr = Just . float2Double <$> readBranch "mu"
+        h = yodaHist 100 0 100 "/mu" "$ <\\mu> $" ""
+
+jetPtH :: MonadIO m => Filler m
+jetPtH = fillWH tr h
+    where
+        tr :: MonadIO m => TR m (Vector Double)
+        tr = fmap float2Double <$> readBranch "jetsMomPt"
+        h = yodaHist 100 0 100000 "/jetpt" "jet $p_{\\mathrm T}$ [MeV]" ""
+
+jetEtaH :: MonadIO m => Filler m
+jetEtaH = fillWH tr h
+    where
+        tr :: MonadIO m => TR m (Vector Double)
+        tr = fmap float2Double <$> readBranch "jetsMomEta"
+        h = yodaHist 100 (-3.0) 3.0 "/jeteta" "jet $\\eta$ [MeV]" ""

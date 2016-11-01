@@ -22,6 +22,7 @@ library
   build-depends:       base == 4.9.*
                      , lens == 4.14.*
                      , vector == 0.11.*
+                     , hhep == 0.2.*
                      , ttree == 0.2.*
                      , atlas == 0.1.*
                      , histogram-extras == 0.2.*
