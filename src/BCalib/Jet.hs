@@ -9,8 +9,8 @@ module BCalib.Jet
     , readJets
     ) where
 
-import Control.Applicative (ZipList(..))
 import Control.Lens
+import Control.Applicative (ZipList(..))
 
 import Foreign.C.Types (CInt)
 import GHC.Generics

@@ -8,6 +8,7 @@ module BCalib.Event
     ) where
 
 import Control.Lens
+import Control.Applicative (getZipList)
 
 import GHC.Generics (Generic)
 import GHC.Float (float2Double)
@@ -17,19 +18,6 @@ import Data.TTree
 
 import BCalib.Jet as X
 import BCalib.Lepton as X
-
-
-data LFlavor = Electron | Muon
-    deriving (Generic, Show)
-data LCharge = Plus | Minus
-    deriving (Generic, Show)
-
-data Lepton =
-    Lepton
-        { _lflavor :: LFlavor
-        , _charge :: LCharge
-        , _lfourmom :: PtEtaPhiE
-        } deriving (Generic, Show)
 
 data Event =
     Event
@@ -75,9 +63,6 @@ readMET m p = do
 ci2i :: CInt -> Int
 ci2i = fromEnum
 
-readLepton = error "readLepton not implemented"
-
-
 weight :: MonadIO m => TR m Double
 weight = float2Double . product
     <$> sequence
@@ -95,7 +80,7 @@ instance FromTTree Event where
             <$> fmap ci2i (readBranch "runNumber")
             <*> fmap ci2i (readBranch "eventNumber")
             <*> fmap float2Double (readBranch "mu")
-            <*> ((,) <$> readLepton "Lep" <*> readLepton "SecLep")
-            <*> readJets
+            <*> readLeptons
+            <*> fmap getZipList readJets
             <*> readMET "MET" "METphi"
             <*> weight
