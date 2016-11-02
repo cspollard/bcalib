@@ -8,6 +8,7 @@ module Main where
 import Control.Lens
 import Control.Monad (forM)
 import Data.Semigroup ((<>))
+import Data.Maybe (catMaybes)
 
 import qualified Data.IntMap as IM
 
@@ -48,9 +49,11 @@ main = do
         h <- tfileGet f "MetaData_EventCount"
         ninitial <- entryd h 4
         t <- ttree f "FlavourTagging_Nominal"
-        (L.Cons dsid _) <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
-        (fromEnum dsid,) . (ninitial,) <$> F.purely L.fold eventHs (project t) <* tfileClose f
+        x <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
+        case x of
+            L.Nil -> return Nothing
+            L.Cons dsid _ -> Just . (fromEnum dsid,) . (ninitial,) <$> F.purely L.fold eventHs (project t) <* tfileClose f
 
-    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
+    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) $ catMaybes hs
 
     BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/lljj" <>) $ hs')
