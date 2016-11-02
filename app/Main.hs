@@ -52,7 +52,7 @@ main = do
                 . T.split (== '.') . (!! 1)
                 . reverse . T.split (== '/') . T.pack
 
-        let dsid' = if dsid < 100000 then 0 else dsid
+        let dsid' = if dsid < 300000 then 0 else dsid
 
         f <- tfileOpen fn
         h <- tfileGet f "MetaData_EventCount"
