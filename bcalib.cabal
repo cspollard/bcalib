@@ -40,6 +40,7 @@ library
 executable bcalib
   main-is:             app/Main.hs
   build-depends:       base == 4.9.*
+                     , lens == 4.14.*
                      , foldl == 1.2.*
                      , bytestring == 0.10.*
                      , list-transformer == 1.0.*

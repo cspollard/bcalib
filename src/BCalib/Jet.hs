@@ -80,15 +80,15 @@ lvsFromTTree ptn etan phin = do
 readJets :: MonadIO m => TR m (ZipList Jet)
 readJets = do
     fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
-    mv2c00s <- readBranch "jetsMV2c00"
-    mv2c10s <- readBranch "jetsMV2c10"
-    mv2c20s <- readBranch "jetsMV2c20"
-    mv2c100s <- readBranch "jetsMV2c100"
-    mv2cl100s <- readBranch "jetsMV2cl100"
-    ip2dLLRs <- readBranch "jetsIP2D_loglikelihoodratio"
-    ip3dLLRs <- readBranch "jetsIP3D_loglikelihoodratio"
-    sv1LLRs <- readBranch "jetsSV1_loglikelihoodratio"
-    sfLLRs <- readBranch "jetsJetFitter_loglikelihoodratio"
+    mv2c00s <- fmap float2Double <$> readBranch "jetsMV2c00"
+    mv2c10s <- fmap float2Double <$> readBranch "jetsMV2c10"
+    mv2c20s <- fmap float2Double <$> readBranch "jetsMV2c20"
+    mv2c100s <- fmap float2Double <$> readBranch "jetsMV2c100"
+    mv2cl100s <- fmap float2Double <$> readBranch "jetsMV2cl100"
+    ip2dLLRs <- fmap float2Double <$> readBranch "jetsIP2D_loglikelihoodratio"
+    ip3dLLRs <- fmap float2Double <$> readBranch "jetsIP3D_loglikelihoodratio"
+    sv1LLRs <- fmap float2Double <$> readBranch "jetsSV1_loglikelihoodratio"
+    sfLLRs <- fmap float2Double <$> readBranch "jetsJetFitter_loglikelihoodratio"
 
     sid <- readBranch "sampleID"
     flvs <- if (sid :: CInt) == 0
@@ -96,14 +96,14 @@ readJets = do
                 else fmap (Just . flavFromCInt) <$> readBranch "jetsTrueFlavor"
 
     return $ Jet
-        <$> fourmoms
-        <*> mv2c00s 
-        <*> mv2c10s
-        <*> mv2c20s
-        <*> mv2c100s
-        <*> mv2cl100s
-        <*> ip2dLLRs
-        <*> ip3dLLRs
-        <*> sv1LLRs
-        <*> sfLLRs
-        <*> flvs
+            <$> fourmoms
+            <*> mv2c00s
+            <*> mv2c10s
+            <*> mv2c20s
+            <*> mv2c100s
+            <*> mv2cl100s
+            <*> ip2dLLRs
+            <*> ip3dLLRs
+            <*> sv1LLRs
+            <*> sfLLRs
+            <*> flvs

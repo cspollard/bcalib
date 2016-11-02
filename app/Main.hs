@@ -1,11 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
+import Control.Lens
 import Control.Monad (forM)
-import Control.Applicative
+import Data.Semigroup ((<>))
 
 import qualified Data.IntMap as IM
 
@@ -49,6 +51,6 @@ main = do
         (L.Cons dsid _) <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
         (fromEnum dsid,) . (ninitial,) <$> F.purely L.fold eventHs (project t) <* tfileClose f
 
-    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
+    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
 
-    BS.writeFile (outfile args) (compress $ encodeLazy hs')
+    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/lljj" <>) $ hs')

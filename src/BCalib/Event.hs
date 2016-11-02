@@ -67,8 +67,6 @@ weight :: MonadIO m => TR m Double
 weight = float2Double . product
     <$> sequence
         [ readBranch "eventWeight"
-        , readBranch "MCEventWeight"
-        , readBranch "PileupWeight"
         , readBranch "leptonSF"
         , readBranch "trigSF"
         ]

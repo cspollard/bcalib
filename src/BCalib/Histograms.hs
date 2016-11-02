@@ -10,7 +10,8 @@ import Control.Lens hiding (Fold)
 import Control.Arrow ((&&&))
 import Control.Applicative
 
-import Control.Foldl
+import Control.Foldl (Fold(..))
+import qualified Control.Foldl as F
 
 import Data.Semigroup
 
@@ -38,6 +39,11 @@ fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
 fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
 
 
+nH :: Foldable f => Fill (f a)
+nH = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
+    where
+        hist = yodaHist 50 0 50 "/n" "$n$" ""
+
 muH :: Fill Event
 muH = Fold (flip $ fillH1 mu) hist id
     where
@@ -46,18 +52,21 @@ muH = Fold (flip $ fillH1 mu) hist id
 ptH :: HasLorentzVector a => Fill a
 ptH = Fold (flip $ fillH1 lvPt) hist id
     where
-        hist = yodaHist 25 0 100000 "/pt" "$p_{\\mathrm T}$ [MeV]" ""
+        hist = yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" ""
 
 etaH :: HasLorentzVector a => Fill a
 etaH = Fold (flip $ fillH1 lvEta) hist id
     where
         hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" ""
 
-jetHs :: Fills Jet
-jetHs = sequenceA (ZipList [ptH, etaH])
+jetsHs :: Fills Event
+jetsHs =
+    (foldAll (sequenceA (ZipList [ptH, etaH])) <$= sequenceA)
+    <> sequenceA (ZipList [nH])
+    <$= fmap (view jets)
     <&> fmap (over path ("/jet" <>) . over xlabel ("jet " <>))
 
+
 eventHs :: Fold Event (ZipList YodaObj)
-eventHs = premap (view eventWeight &&& id) $
-    sequenceA (ZipList [muH])
-    <> (foldAll jetHs <$= traverse (view jets))
+eventHs = F.premap (view eventWeight &&& id) $
+    jetsHs <> sequenceA (ZipList [muH])
