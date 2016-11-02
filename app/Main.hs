@@ -24,6 +24,7 @@ import Data.TFile
 import Data.TH1
 
 import Options.Generic
+import System.IO (hFlush, stdout)
 
 import BCalib.Histograms
 
@@ -44,7 +45,7 @@ main = do
     -- this folding doesn't need to store histograms from each file
     -- in memory...
     hs <- forM fns $ \fn -> do
-        putStrLn $ "analyzing file " ++ fn
+        putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
         let (dsid :: Int) = fn 
                 & read . T.unpack . (!! 3)
