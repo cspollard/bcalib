@@ -47,7 +47,7 @@ main = do
         putStrLn $ "analyzing file " ++ fn
 
         let (dsid :: Int) = fn 
-                & read . T.unpack . (!! 2)
+                & read . T.unpack . (!! 3)
                 . T.split (== '.') . (!! 1)
                 . reverse . T.split (== '/') . T.pack
 
