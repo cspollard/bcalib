@@ -59,8 +59,10 @@ main = do
         ninitial <- entryd h 4
 
         t <- ttree f "FlavourTagging_Nominal"
-        (fromEnum dsid',) . (ninitial,)
-            <$> F.purely L.fold eventHs (project t)
+
+        nt <- isNullTree t
+        (dsid',) . (ninitial,)
+            <$> F.purely L.fold eventHs (if nt then L.empty else project t)
             <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
