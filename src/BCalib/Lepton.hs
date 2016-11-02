@@ -73,7 +73,7 @@ readLeptons = do
             ( Lepton Electron lcharge1 p1
             , Lepton Electron lcharge2 p2
             )
-    else if lchan == 2 || lchan == 22
+    else if lchan == 2 || lchan == 12
         then return
             ( Lepton Muon lcharge1 p1
             , Lepton Muon lcharge2 p2

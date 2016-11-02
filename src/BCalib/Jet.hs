@@ -79,7 +79,7 @@ lvsFromTTree ptn etan phin = do
 
 readJets :: MonadIO m => TR m (ZipList Jet)
 readJets = do
-    fourmoms <- lvsFromTTree "jetsMomPt" "JetsMomEta" "JetsMomPhi"
+    fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
     mv2c00s <- readBranch "jetsMV2c00"
     mv2c10s <- readBranch "jetsMV2c10"
     mv2c20s <- readBranch "jetsMV2c20"

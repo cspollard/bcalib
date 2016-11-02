@@ -1,96 +1,63 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module BCalib.Histograms
     ( module X
-    , runFiller
-    , bcalibHists
+    , eventHs
     ) where
 
-import Control.Lens
+import Control.Lens hiding (Fold)
+import Control.Arrow ((&&&))
 import Control.Applicative
 
-import Data.Semigroup
-import Data.Vector (Vector)
+import Control.Foldl
 
-import GHC.Float
+import Data.Semigroup
 
 import Data.YODA.Obj as X
 import Data.TTree as X
 import Data.Atlas.Histogramming as X
+import BCalib.Event
 
-newtype Filler m = Filler (ZipList (YodaObj -> TR m YodaObj), ZipList YodaObj)
+instance Semigroup (ZipList a) where
+    ZipList xs <> ZipList ys = ZipList $ xs <> ys
 
+instance Semigroup b => Semigroup (Fold a b) where
+    (<>) = liftA2 (<>)
 
-singleton :: (YodaObj -> TR m YodaObj) -> YodaObj -> Filler m
-singleton f h = Filler (ZipList [f], ZipList [h])
+type Fill a = Fold (Double, a) YodaObj
+type Fills a = Fold (Double, a) (ZipList YodaObj)
 
-fillH :: (MonadIO m, Foldable f) => TR m (f Double) -> TR m Double -> YodaObj -> Filler m
-fillH obs wgt = singleton f
-    where f h = do
-            xs <- obs
-            w <- wgt
-            return $ foldl (\h' x -> over (noted._H1DD) (filling w x) h') h xs
+fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
+fill l (w, x) = filling w (l x)
 
-fillP :: (MonadIO m, Foldable f) => TR m (f (Double, Double)) -> TR m Double -> YodaObj -> Filler m
-fillP obs wgt = singleton f
-    where f h = do
-            xs <- obs
-            w <- wgt
-            return $ foldl (\h' x -> over (noted._P1DD) (filling w x) h') h xs
+fillH1 :: Getter a Double -> (Double, a) -> YodaObj -> YodaObj
+fillH1 l (w, x) = over (noted._H1DD) (fill (view l) (w, x))
 
+fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
+fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
 
 
-fillWH :: (MonadIO m, Foldable f) => TR m (f Double) -> YodaObj -> Filler m
-fillWH tr = fillH tr weight
-
-fillWP :: (MonadIO m, Foldable f) => TR m (f (Double, Double)) -> YodaObj -> Filler m
-fillWP tr = fillP tr weight
-
-
-instance Semigroup (Filler m) where
-    (<>) = addF
-
-instance Monoid (Filler m) where
-    mempty = Filler (ZipList [], ZipList [])
-    mappend = (<>)
-
-
-addF :: Filler m -> Filler m -> Filler m
-addF (Filler (x, y)) (Filler (x', y')) = Filler (addZL x x', addZL y y')
-    where addZL (ZipList xs) (ZipList ys) = ZipList $ xs ++ ys
-
-
-runFiller :: MonadIO m => Filler m -> TTree -> m (ZipList YodaObj)
-runFiller (Filler (fs, hs)) = runTTree (ff fs) hs
+muH :: Fill Event
+muH = Fold (flip $ fillH1 mu) hist id
     where
-        ff fs' hs' = sequence $ fs' <*> hs'
+        hist = yodaHist 50 0 50 "/mu" "$ <\\mu> $" ""
 
-
-bcalibHists :: MonadIO m => Filler m
-bcalibHists =
-    mconcat
-        [ muH
-        , jetPtH
-        , jetEtaH
-        ]
-
-
-muH :: MonadIO m => Filler m
-muH = fillWH tr h
+ptH :: HasLorentzVector a => Fill a
+ptH = Fold (flip $ fillH1 lvPt) hist id
     where
-        tr = Just . float2Double <$> readBranch "mu"
-        h = yodaHist 100 0 100 "/mu" "$ <\\mu> $" ""
+        hist = yodaHist 25 0 100000 "/pt" "$p_{\\mathrm T}$ [MeV]" ""
 
-jetPtH :: MonadIO m => Filler m
-jetPtH = fillWH tr h
+etaH :: HasLorentzVector a => Fill a
+etaH = Fold (flip $ fillH1 lvEta) hist id
     where
-        tr :: MonadIO m => TR m (Vector Double)
-        tr = fmap float2Double <$> readBranch "jetsMomPt"
-        h = yodaHist 100 0 100000 "/jetpt" "jet $p_{\\mathrm T}$ [MeV]" ""
+        hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" ""
 
-jetEtaH :: MonadIO m => Filler m
-jetEtaH = fillWH tr h
-    where
-        tr :: MonadIO m => TR m (Vector Double)
-        tr = fmap float2Double <$> readBranch "jetsMomEta"
-        h = yodaHist 100 (-3.0) 3.0 "/jeteta" "jet $\\eta$ [MeV]" ""
+jetHs :: Fills Jet
+jetHs = sequenceA (ZipList [ptH, etaH])
+    <&> fmap (over path ("/jet" <>) . over xlabel ("jet " <>))
+
+eventHs :: Fold Event (ZipList YodaObj)
+eventHs = premap (view eventWeight &&& id) $
+    sequenceA (ZipList [muH])
+    <> (foldAll jetHs <$= traverse (view jets))

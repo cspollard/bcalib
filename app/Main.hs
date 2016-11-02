@@ -4,16 +4,13 @@
 
 module Main where
 
-import Control.Lens
 import Control.Monad (forM)
 import Control.Applicative
 
-import Foreign.C.String
-
-import Data.Maybe (fromMaybe)
 import qualified Data.IntMap as IM
 
 import qualified List.Transformer as L
+import qualified Control.Foldl as F
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (encodeLazy)
@@ -50,7 +47,7 @@ main = do
         ninitial <- entryd h 4
         t <- ttree f "FlavourTagging_Nominal"
         (L.Cons dsid _) <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
-        (fromEnum dsid,) . (ninitial,) <$> runFiller bcalibHists t <* tfileClose f
+        (fromEnum dsid,) . (ninitial,) <$> F.purely L.fold eventHs (project t) <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', liftA2 mergeYO ms ms')) hs
 
