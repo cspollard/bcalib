@@ -8,12 +8,12 @@ module Main where
 import Control.Lens
 import Control.Monad (forM)
 import Data.Semigroup ((<>))
-import Data.Maybe (catMaybes)
-
-import qualified Data.IntMap as IM
 
 import qualified List.Transformer as L
 import qualified Control.Foldl as F
+
+import qualified Data.IntMap as IM
+import qualified Data.Text as T
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (encodeLazy)
@@ -45,15 +45,21 @@ main = do
     -- in memory...
     hs <- forM fns $ \fn -> do
         putStrLn $ "analyzing file " ++ fn
+
+        let (dsid :: Int) = fn 
+                & read . T.unpack . (!! 2)
+                . T.split (== '.') . (!! 1)
+                . reverse . T.split (== '/') . T.pack
+
         f <- tfileOpen fn
         h <- tfileGet f "MetaData_EventCount"
         ninitial <- entryd h 4
-        t <- ttree f "FlavourTagging_Nominal"
-        x <- L.next $ runTTreeL (readBranch "sampleID") t :: IO (L.Step IO CInt)
-        case x of
-            L.Nil -> return Nothing
-            L.Cons dsid _ -> Just . (fromEnum dsid,) . (ninitial,) <$> F.purely L.fold eventHs (project t) <* tfileClose f
 
-    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) $ catMaybes hs
+        t <- ttree f "FlavourTagging_Nominal"
+        (fromEnum dsid,) . (ninitial,)
+            <$> F.purely L.fold eventHs (project t)
+            <* tfileClose f
+
+    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
 
     BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/lljj" <>) $ hs')

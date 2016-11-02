@@ -39,10 +39,10 @@ fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
 fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
 
 
-nH :: Foldable f => Fill (f a)
-nH = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
+nH :: Foldable f => Int -> Fill (f a)
+nH mx = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
     where
-        hist = yodaHist 50 0 50 "/n" "$n$" ""
+        hist = yodaHist mx 0 (fromIntegral mx) "/n" "$n$" ""
 
 muH :: Fill Event
 muH = Fold (flip $ fillH1 mu) hist id
@@ -62,7 +62,7 @@ etaH = Fold (flip $ fillH1 lvEta) hist id
 jetsHs :: Fills Event
 jetsHs =
     (foldAll (sequenceA (ZipList [ptH, etaH])) <$= sequenceA)
-    <> sequenceA (ZipList [nH])
+    <> sequenceA (ZipList [nH 10])
     <$= fmap (view jets)
     <&> fmap (over path ("/jet" <>) . over xlabel ("jet " <>))
 
