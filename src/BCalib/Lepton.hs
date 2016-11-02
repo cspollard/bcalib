@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module BCalib.Lepton
     ( module X
@@ -44,21 +45,19 @@ readLeptons = do
     eta1 <- float2Double <$> readBranch "etaLep"
     phi1 <- float2Double <$> readBranch "phiLep"
     let p1 = PtEtaPhiE pt1 eta1 phi1 $ pt1 * cosh eta1
-    lc1 <- readBranch "signLep"
-    let lcharge1 = case (lc1 :: CInt) of
-                    (-1) -> Minus
-                    ( 1) -> Plus
-                    x    -> error $ "invalid signLep: " ++ show x
+    (lc1 :: CInt) <- readBranch "signLep"
+    let lcharge1 = if lc1 > 0
+                    then Plus
+                    else Minus
 
     pt2 <- float2Double <$> readBranch "ptSecLep"
     eta2 <- float2Double <$> readBranch "etaSecLep"
     phi2 <- float2Double <$> readBranch "phiSecLep"
     let p2 = PtEtaPhiE pt2 eta2 phi2 $ pt2 * cosh eta2
-    lc2 <- readBranch "signSecLep"
-    let lcharge2 = case (lc2 :: CInt) of
-                    (-1) -> Minus
-                    ( 1) -> Plus
-                    x    -> error $ "invalid signSecLep: " ++ show x
+    (lc2 :: CInt) <- readBranch "signSecLep"
+    let lcharge2 = if lc2 > 0
+                    then Plus
+                    else Minus
 
     lchan <- readBranch "leptonChannel"
     if (lchan :: CInt) == 00 || lchan == 10
