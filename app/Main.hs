@@ -51,12 +51,14 @@ main = do
                 . T.split (== '.') . (!! 1)
                 . reverse . T.split (== '/') . T.pack
 
+        let dsid' = if dsid < 100000 then 0 else dsid
+
         f <- tfileOpen fn
         h <- tfileGet f "MetaData_EventCount"
         ninitial <- entryd h 4
 
         t <- ttree f "FlavourTagging_Nominal"
-        (fromEnum dsid,) . (ninitial,)
+        (fromEnum dsid',) . (ninitial,)
             <$> F.purely L.fold eventHs (project t)
             <* tfileClose f
 
