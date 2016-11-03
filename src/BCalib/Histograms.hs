@@ -110,7 +110,7 @@ withWeight :: Event -> (Double, Event)
 withWeight = view eventWeight &&& id
 
 eventHs :: Fills Event
-eventHs = jetsHs <> sequenceA (ZipList [muH])
+eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
 
 channel :: T.Text -> Fills a -> Fills a
 channel n fs = fmap (over path (n <>)) <$> fs
@@ -122,7 +122,6 @@ inclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
 inclChannels cuts fills = mconcat <$> Fold f fills' g
     where
         fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
-
 
         f o x = over (traverse . h (snd x) . _2) (`feed` x) o
 
