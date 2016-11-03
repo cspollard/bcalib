@@ -14,6 +14,7 @@ import Control.Foldl (Fold(..))
 import qualified Control.Foldl as F
 
 import Data.Semigroup
+import qualified Data.Text as T
 
 import Data.YODA.Obj as X
 import Data.TTree as X
@@ -22,6 +23,10 @@ import BCalib.Event
 
 instance Semigroup (ZipList a) where
     ZipList xs <> ZipList ys = ZipList $ xs <> ys
+
+instance Monoid (ZipList a) where
+    mempty = ZipList []
+    mappend = (<>)
 
 instance Semigroup b => Semigroup (Fold a b) where
     (<>) = liftA2 (<>)
@@ -70,3 +75,47 @@ jetsHs =
 eventHs :: Fold Event (ZipList YodaObj)
 eventHs = F.premap (view eventWeight &&& id) $
     jetsHs <> sequenceA (ZipList [muH])
+
+channel :: T.Text -> Fills a -> Fills a
+channel n fs = fmap (over path ("/jet" <>)) <$> fs
+
+fillAll :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
+fillAll cuts fills = mconcat <$> Fold f fills' g
+    where
+        fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
+
+
+        f :: [(a -> Bool, Fills a)] -> (Double, a) -> [(a -> Bool, Fills a)]
+        f o x = over (traverse . h (snd x) . _2) (`feed` x) o
+
+        h :: t1 -> Prism (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t)
+        h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
+
+        g :: [(a, Fold t b)] -> [b]
+        g = fmap ((\(Fold _ x w) -> w x) . snd)
+
+fillFirst :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
+fillFirst cuts fills = mconcat <$> Fold f fills' g
+    where
+        fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
+
+        f :: [(a -> Bool, Fills a)] -> (Double, a) -> [(a -> Bool, Fills a)]
+        f o x = over (taking 1 $ traverse . h (snd x) . _2) (`feed` x) o
+
+        h :: t1 -> Prism (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t)
+        h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
+
+        g :: [(a, Fold t b)] -> [b]
+        g = fmap ((\(Fold _ x w) -> w x) . snd)
+
+opLepFlav :: Event -> Bool
+opLepFlav e = case view leptons e & over both (view lepFlavor) of
+                (Electron, Muon) -> True
+                (Muon, Electron) -> True
+                _                -> False
+
+opLepSign :: Event -> Bool
+opLepSign e = case view leptons e & over both (view lepCharge) of
+                (Plus, Minus) -> True
+                (Minus, Plus) -> True
+                _             -> False

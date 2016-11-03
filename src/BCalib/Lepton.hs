@@ -4,6 +4,7 @@ module BCalib.Lepton
     ( module X
     , Lepton(Lepton)
     , lepFlavor, lepCharge, readLeptons
+    , LFlavor(..), LCharge(..)
     ) where
 
 import Control.Lens
