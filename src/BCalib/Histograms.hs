@@ -5,7 +5,8 @@ module BCalib.Histograms
     ( module X
     , eventHs
     , withWeight
-    , lepChannels
+    , lepFlavorChannels
+    , lepChargeChannels
     ) where
 
 import Control.Lens hiding (Fold)
@@ -66,19 +67,44 @@ etaH = Fold (flip $ fillH1 lvEta) hist id
     where
         hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" ""
 
+
+-- generic histograms for a lorentz vector
+lvHs :: HasLorentzVector a => Fills a
+lvHs = sequenceA (ZipList [ptH, etaH])
+
 jetsHs :: Fills Event
 jetsHs =
-    (foldAll (sequenceA (ZipList [ptH, etaH])) <$= sequenceA)
-    <> sequenceA (ZipList [nH 10])
+    (F.handles traverse lvHs <$= sequenceA)
+        <> sequenceA (ZipList [nH 10])
     <$= fmap (view jets)
-    <&> fmap (over path ("/jet" <>) . over xlabel ("jet " <>))
+    <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
+
+lepsHs :: Fills Event
+lepsHs =
+    -- TODO
+    -- must be better way to write this...
+    F.handles traverse lvHs <$= (\(w, e) -> let (l1, l2) = view leptons e in [(w, l1), (w, l2)])
+    <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
 
 
-lepChannels :: Fills Event -> Fills Event
-lepChannels =
-    fillFirst
-        [ ("elmu", oppLepCharge)
-        ]
+lepChargeChannels :: Fills Event -> Fills Event
+lepChargeChannels fills =
+    mappend
+        <$> channel "/allLepCharge" fills
+        <*> exclChannels
+            [ ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
+            , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
+            ] fills
+
+lepFlavorChannels :: Fills Event -> Fills Event
+lepFlavorChannels fills =
+    mappend
+        <$> channel "/allLepFlav" fills
+        <*> exclChannels
+            [ ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
+            , ("/mumu", leptonFlavors (Muon, Muon))
+            , ("/elel", leptonFlavors (Electron, Electron))
+            ] fills
 
 withWeight :: Event -> (Double, Event)
 withWeight = view eventWeight &&& id
@@ -92,8 +118,8 @@ channel n fs = fmap (over path (n <>)) <$> fs
 -- TODO
 -- SO MUCH DUPLICATION
 
-fillAll :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
-fillAll cuts fills = mconcat <$> Fold f fills' g
+inclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
+inclChannels cuts fills = mconcat <$> Fold f fills' g
     where
         fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
 
@@ -104,8 +130,8 @@ fillAll cuts fills = mconcat <$> Fold f fills' g
 
         g = fmap ((\(Fold _ x w) -> w x) . snd)
 
-fillFirst :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
-fillFirst cuts fills = mconcat <$> Fold f fills' g
+exclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
+exclChannels cuts fills = mconcat <$> Fold f fills' g
     where
         fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
 
@@ -115,20 +141,9 @@ fillFirst cuts fills = mconcat <$> Fold f fills' g
 
         g = fmap ((\(Fold _ x w) -> w x) . snd)
 
-oppLepFlav :: Event -> Bool
--- TODO
--- why does view (leptons.both.lepFlavor) e not work?
-oppLepFlav e =
-    case view leptons e & over both (view lepFlavor) of
-        (Electron, Muon) -> True
-        (Muon, Electron) -> True
-        _                -> False
 
--- TODO
--- why does view (leptons.both.lepCharge) e not work?
-oppLepCharge :: Event -> Bool
-oppLepCharge e =
-    case view leptons e & over both (view lepCharge) of
-        (Plus, Minus) -> True
-        (Minus, Plus) -> True
-        _             -> False
+leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
+leptonFlavors flvs e = flvs == (view leptons e & over both (view lepFlavor))
+
+leptonCharges :: (LCharge, LCharge) -> Event -> Bool
+leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))

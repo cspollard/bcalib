@@ -48,22 +48,23 @@ main = do
         putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
         let (dsid :: Int) = fn 
-                & read . T.unpack . (!! 2)
+                & read . T.unpack . (!! 3)
                 . T.split (== '.') . (!! 1)
                 . reverse . T.split (== '/') . T.pack
 
-        let dsid' = if dsid < 100000 then 0 else dsid
+        let dsid' = if dsid < 300000 then 0 else dsid
 
         f <- tfileOpen fn
         h <- tfileGet f "MetaData_EventCount"
         ninitial <- entryd h 4
 
         t <- ttree f "FlavourTagging_Nominal"
+
+        nt <- isNullTree t
         (fromEnum dsid',) . (ninitial,)
-            <$> F.purely L.fold (lepChannels eventHs) (withWeight <$> project t)
+            <$> F.purely L.fold (lepFlavorChannels . lepChargeChannels $ eventHs) (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
 
-    print hs'
-    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/lljj" <>) $ hs')
+    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs')
