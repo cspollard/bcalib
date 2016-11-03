@@ -60,9 +60,10 @@ main = do
 
         t <- ttree f "FlavourTagging_Nominal"
         (fromEnum dsid',) . (ninitial,)
-            <$> F.purely L.fold eventHs (project t)
+            <$> F.purely L.fold (lepChannels eventHs) (withWeight <$> project t)
             <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
 
+    print hs'
     BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/lljj" <>) $ hs')

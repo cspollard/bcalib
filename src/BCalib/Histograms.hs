@@ -4,6 +4,8 @@
 module BCalib.Histograms
     ( module X
     , eventHs
+    , withWeight
+    , lepChannels
     ) where
 
 import Control.Lens hiding (Fold)
@@ -72,12 +74,23 @@ jetsHs =
     <&> fmap (over path ("/jet" <>) . over xlabel ("jet " <>))
 
 
-eventHs :: Fold Event (ZipList YodaObj)
-eventHs = F.premap (view eventWeight &&& id) $
-    jetsHs <> sequenceA (ZipList [muH])
+lepChannels :: Fills Event -> Fills Event
+lepChannels =
+    fillFirst
+        [ ("elmu", oppLepCharge)
+        ]
+
+withWeight :: Event -> (Double, Event)
+withWeight = view eventWeight &&& id
+
+eventHs :: Fills Event
+eventHs = jetsHs <> sequenceA (ZipList [muH])
 
 channel :: T.Text -> Fills a -> Fills a
-channel n fs = fmap (over path ("/jet" <>)) <$> fs
+channel n fs = fmap (over path (n <>)) <$> fs
+
+-- TODO
+-- SO MUCH DUPLICATION
 
 fillAll :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
 fillAll cuts fills = mconcat <$> Fold f fills' g
@@ -85,13 +98,10 @@ fillAll cuts fills = mconcat <$> Fold f fills' g
         fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
 
 
-        f :: [(a -> Bool, Fills a)] -> (Double, a) -> [(a -> Bool, Fills a)]
         f o x = over (traverse . h (snd x) . _2) (`feed` x) o
 
-        h :: t1 -> Prism (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t)
         h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
 
-        g :: [(a, Fold t b)] -> [b]
         g = fmap ((\(Fold _ x w) -> w x) . snd)
 
 fillFirst :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
@@ -99,23 +109,26 @@ fillFirst cuts fills = mconcat <$> Fold f fills' g
     where
         fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
 
-        f :: [(a -> Bool, Fills a)] -> (Double, a) -> [(a -> Bool, Fills a)]
         f o x = over (taking 1 $ traverse . h (snd x) . _2) (`feed` x) o
 
-        h :: t1 -> Prism (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t) (t1 -> Bool, t)
         h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
 
-        g :: [(a, Fold t b)] -> [b]
         g = fmap ((\(Fold _ x w) -> w x) . snd)
 
-opLepFlav :: Event -> Bool
-opLepFlav e = case view leptons e & over both (view lepFlavor) of
-                (Electron, Muon) -> True
-                (Muon, Electron) -> True
-                _                -> False
+oppLepFlav :: Event -> Bool
+-- TODO
+-- why does view (leptons.both.lepFlavor) e not work?
+oppLepFlav e =
+    case view leptons e & over both (view lepFlavor) of
+        (Electron, Muon) -> True
+        (Muon, Electron) -> True
+        _                -> False
 
-opLepSign :: Event -> Bool
-opLepSign e = case view leptons e & over both (view lepCharge) of
-                (Plus, Minus) -> True
-                (Minus, Plus) -> True
-                _             -> False
+-- TODO
+-- why does view (leptons.both.lepCharge) e not work?
+oppLepCharge :: Event -> Bool
+oppLepCharge e =
+    case view leptons e & over both (view lepCharge) of
+        (Plus, Minus) -> True
+        (Minus, Plus) -> True
+        _             -> False
