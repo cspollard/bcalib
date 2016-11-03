@@ -7,6 +7,7 @@ module BCalib.Histograms
     , withWeight
     , lepFlavorChannels
     , lepChargeChannels
+    , zlseq
     ) where
 
 import Control.Lens hiding (Fold)
@@ -34,8 +35,13 @@ instance Monoid (ZipList a) where
 instance Semigroup b => Semigroup (Fold a b) where
     (<>) = liftA2 (<>)
 
+
 type Fill a = Fold (Double, a) YodaObj
 type Fills a = Fold (Double, a) (ZipList YodaObj)
+
+zlseq :: ZipList a -> ZipList a
+zlseq zl = case zl of
+            ZipList xs -> ZipList $! lseq xs
 
 fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
 fill l (w, x) = filling w (l x)
@@ -127,7 +133,7 @@ inclChannels cuts fills = mconcat <$> Fold f fills' g
 
         h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
 
-        g = fmap ((\(Fold _ x w) -> w x) . snd)
+        g = lseq . fmap ((\(Fold _ x w) -> w x) . snd)
 
 exclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
 exclChannels cuts fills = mconcat <$> Fold f fills' g
@@ -138,7 +144,7 @@ exclChannels cuts fills = mconcat <$> Fold f fills' g
 
         h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
 
-        g = fmap ((\(Fold _ x w) -> w x) . snd)
+        g = lseq . fmap ((\(Fold _ x w) -> w x) . snd)
 
 
 leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
