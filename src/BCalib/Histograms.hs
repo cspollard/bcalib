@@ -7,7 +7,6 @@ module BCalib.Histograms
     , withWeight
     , lepFlavorChannels
     , lepChargeChannels
-    , zlseq
     ) where
 
 import Control.Lens hiding (Fold)
@@ -38,10 +37,6 @@ instance Semigroup b => Semigroup (Fold a b) where
 
 type Fill a = Fold (Double, a) YodaObj
 type Fills a = Fold (Double, a) (ZipList YodaObj)
-
-zlseq :: ZipList a -> ZipList a
-zlseq zl = case zl of
-            ZipList xs -> ZipList $! lseq xs
 
 fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
 fill l (w, x) = filling w (l x)
@@ -93,58 +88,21 @@ lepsHs =
     <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
 
 
-lepChargeChannels :: Fills Event -> Fills Event
-lepChargeChannels fills =
-    mappend
-        <$> channel "/allLepCharge" fills
-        <*> exclChannels
-            [ ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
-            , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
-            ] fills
-
-lepFlavorChannels :: Fills Event -> Fills Event
-lepFlavorChannels fills =
-    mappend
-        <$> channel "/allLepFlav" fills
-        <*> exclChannels
-            [ ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
-            , ("/mumu", leptonFlavors (Muon, Muon))
-            , ("/elel", leptonFlavors (Electron, Electron))
-            ] fills
-
 withWeight :: Event -> (Double, Event)
 withWeight = view eventWeight &&& id
 
 eventHs :: Fills Event
 eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
 
-channel :: T.Text -> Fills a -> Fills a
-channel n fs = fmap (over path (n <>)) <$> fs
+selector :: (a -> Bool) -> Prism' (Double, a) (Double, a)
+selector f = prism' id $ \wx@(_, x) -> if f x then Just wx else Nothing
 
--- TODO
--- SO MUCH DUPLICATION
+channel :: T.Text -> (a -> Bool) -> Fills a -> Fills a
+channel n f fills = fmap (over path (n <>)) <$> F.handles (selector f) fills
 
-inclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
-inclChannels cuts fills = mconcat <$> Fold f fills' g
-    where
-        fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
 
-        f o x = over (traverse . h (snd x) . _2) (`feed` x) o
-
-        h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
-
-        g = lseq . fmap ((\(Fold _ x w) -> w x) . snd)
-
-exclChannels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
-exclChannels cuts fills = mconcat <$> Fold f fills' g
-    where
-        fills' = (\(n, isGood) fs -> (isGood, channel n fs)) <$> cuts <*> pure fills
-
-        f o x = over (taking 1 $ traverse . h (snd x) . _2) (`feed` x) o
-
-        h x = prism' id $ \(c, fs) -> if c x then Just (c, fs) else Nothing
-
-        g = lseq . fmap ((\(Fold _ x w) -> w x) . snd)
+channels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
+channels fns fills = fmap mconcat . sequenceA $ uncurry channel <$> fns <*> pure fills
 
 
 leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
@@ -152,3 +110,21 @@ leptonFlavors flvs e = flvs == (view leptons e & over both (view lepFlavor))
 
 leptonCharges :: (LCharge, LCharge) -> Event -> Bool
 leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))
+
+
+lepChargeChannels :: Fills Event -> Fills Event
+lepChargeChannels =
+    channels
+        [ ("/allLepCharge", const True)
+        , ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
+        , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
+        ]
+
+lepFlavorChannels :: Fills Event -> Fills Event
+lepFlavorChannels =
+    channels 
+        [ ("/allLepFlav", const True)
+        , ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
+        , ("/mumu", leptonFlavors (Muon, Muon))
+        , ("/elel", leptonFlavors (Electron, Electron))
+        ]
