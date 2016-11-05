@@ -7,6 +7,7 @@ module BCalib.Histograms
     , withWeight
     , lepFlavorChannels
     , lepChargeChannels
+    , nJetChannels
     ) where
 
 import Control.Lens hiding (Fold)
@@ -73,9 +74,28 @@ etaH = Fold (flip $ fillH1 lvEta) hist id
 lvHs :: HasLorentzVector a => Fills a
 lvHs = sequenceA (ZipList [ptH, etaH])
 
+ftagHs :: Fills Jet
+ftagHs = sequenceA . ZipList $
+    [ ftagH mv2c00 "mv2c00"
+    , ftagH mv2c10 "mv2c10"
+    , ftagH mv2c20 "mv2c20"
+    , ftagH mv2c100 "mv2c100"
+    , ftagH mv2cl100 "mv2cl100"
+    , ftagH ip2dLLR "ip2dLLR"
+    , ftagH ip3dLLR "ip3dLLR"
+    , ftagH sv1LLR "sv1LLR"
+    , ftagH jfLLR "jfLLR"
+    ]
+    where
+        ftagH :: Lens' Jet Double -> T.Text -> Fill Jet
+        ftagH l n =
+            let hist = yodaHist 50 (-1) 1 ("/" <> n) n ""
+            in Fold (flip $ fillH1 l) hist id
+
+
 jetsHs :: Fills Event
 jetsHs =
-    (F.handles traverse lvHs <$= sequenceA)
+    (F.handles traverse (lvHs <> ftagHs) <$= sequenceA)
         <> sequenceA (ZipList [nH 10])
     <$= fmap (view jets)
     <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
@@ -127,4 +147,13 @@ lepFlavorChannels =
         , ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
         , ("/mumu", leptonFlavors (Muon, Muon))
         , ("/elel", leptonFlavors (Electron, Electron))
+        ]
+
+nJetChannels :: Fills Event -> Fills Event
+nJetChannels =
+    channels 
+        [ ("/allNjets", const True)
+        , ("/2jet", (== 2) . views jets length)
+        , ("/3jet", (== 3) . views jets length)
+        , ("/4pjet", (>= 4) . views jets length)
         ]

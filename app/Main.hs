@@ -62,7 +62,7 @@ main = do
 
         nt <- isNullTree t
         (fromEnum dsid',) . (ninitial,)
-            <$> F.purely L.fold (lepFlavorChannels . lepChargeChannels $ eventHs) (if nt then L.empty else withWeight <$> project t)
+            <$> F.purely L.fold (lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs) (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 
     let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
