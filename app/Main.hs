@@ -44,7 +44,8 @@ main = do
     -- TODO
     -- this folding doesn't need to store histograms from each file
     -- in memory...
-    hs <- forM fns $ \fn -> do
+    let collapse = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms'))
+    hs <- fmap collapse . forM fns $ \fn -> do
         putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
         let (dsid :: Int) = fn 
@@ -65,6 +66,4 @@ main = do
             <$> F.purely L.fold (lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs) (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 
-    let hs' = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms')) hs
-
-    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs')
+    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs)
