@@ -76,20 +76,20 @@ lvHs = sequenceA (ZipList [ptH, etaH])
 
 ftagHs :: Fills Jet
 ftagHs = sequenceA . ZipList $
-    [ ftagH mv2c00 "mv2c00"
-    , ftagH mv2c10 "mv2c10"
-    , ftagH mv2c20 "mv2c20"
-    , ftagH mv2c100 "mv2c100"
-    , ftagH mv2cl100 "mv2cl100"
-    , ftagH ip2dLLR "ip2dLLR"
-    , ftagH ip3dLLR "ip3dLLR"
-    , ftagH sv1LLR "sv1LLR"
-    , ftagH jfLLR "jfLLR"
+    [ ftagH mv2c00 "mv2c00" (-1) 1
+    , ftagH mv2c10 "mv2c10" (-1) 1
+    , ftagH mv2c20 "mv2c20" (-1) 1
+    , ftagH mv2c100 "mv2c100" (-1) 1
+    , ftagH mv2cl100 "mv2cl100" (-1) 1
+    , ftagH ip2dLLR "ip2dLLR" (-20) 30
+    , ftagH ip3dLLR "ip3dLLR" (-20) 30
+    , ftagH sv1LLR "sv1LLR" (-5) 15
+    , ftagH jfLLR "jfLLR" (-10) 10
     ]
     where
-        ftagH :: Lens' Jet Double -> T.Text -> Fill Jet
-        ftagH l n =
-            let hist = yodaHist 50 (-1) 1 ("/" <> n) n ""
+        ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
+        ftagH l n mn mx =
+            let hist = yodaHist 50 mn mx ("/" <> n) n ""
             in Fold (flip $ fillH1 l) hist id
 
 
