@@ -8,6 +8,7 @@ module Main where
 import Control.Lens
 import Control.Monad (forM)
 import Data.Semigroup ((<>))
+import Data.List (isInfixOf)
 
 import qualified List.Transformer as L
 import qualified Control.Foldl as F
@@ -54,10 +55,13 @@ main = do
     hs <- fmap collapse . forM fns $ \fn -> do
         putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
-        let (dsid :: Int) = fn 
-                & read . T.unpack . (!! 3)
-                . T.split (== '.') . (!! 1)
-                . reverse . T.split (== '/') . T.pack
+        let (dsid :: Int) =
+                if "data15_13TeV" `isInfixOf` fn || "data16_13TeV" `isInfixOf` fn
+                    then 0
+                    else fn
+                        & read . T.unpack . (!! 3)
+                        . T.split (== '.') . (!! 1)
+                        . reverse . T.split (== '/') . T.pack
 
         let dsid' = if dsid < 300000 then 0 else dsid
 
