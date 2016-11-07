@@ -1,4 +1,7 @@
 #!/bin/bash
 
 cd ~/Programming/bcalib.git
-bcalib --outfile ${1/infiles/hist.gz} --infiles $1 > ${1/infiles/log} 
+TMP=`mktemp -d`
+bcalib --outfile $TMP/tmp --infiles $1 > ${1/infiles/log} 
+mv $TMP/tmp ${1/infiles/hist.gz} 
+rm -r $TMP

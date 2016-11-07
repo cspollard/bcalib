@@ -86,6 +86,7 @@ ftagHs = sequenceA . ZipList $
     , ftagH sv1LLR "sv1LLR" (-5) 15
     , ftagH jfLLR "jfLLR" (-10) 10
     ]
+
     where
         ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
         ftagH l n mn mx =
