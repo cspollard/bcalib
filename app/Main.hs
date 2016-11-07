@@ -44,6 +44,12 @@ main = do
     -- TODO
     -- this folding doesn't need to store histograms from each file
     -- in memory...
+    -- TODO
+    -- TODO
+    -- turn this into a fold
+    -- that looks to see if we've already filled hists for this dsid
+    -- if so: continue filling the histograms
+    -- if not: use new fold.
     let collapse = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms'))
     hs <- fmap collapse . forM fns $ \fn -> do
         putStrLn ("analyzing file " ++ fn) >> hFlush stdout
