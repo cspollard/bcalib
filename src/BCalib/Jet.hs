@@ -3,6 +3,7 @@
 module BCalib.Jet
     ( module X
     , Jet(Jet)
+    , JetFlavor(..)
     , mv2c00, mv2c10, mv2c20, mv2c100, mv2cl100
     , ip2dLLR, ip3dLLR, sv1LLR, jfLLR
     , truthFlavor
@@ -21,7 +22,7 @@ import Data.TTree
 
 
 data JetFlavor = L | C | B
-    deriving (Generic, Show)
+    deriving (Generic, Show, Eq, Ord)
 
 flavFromCInt :: CInt -> JetFlavor
 flavFromCInt x = case x of

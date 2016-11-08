@@ -86,6 +86,7 @@ ftagHs = sequenceA . ZipList $
     , ftagH sv1LLR "sv1LLR" (-5) 15
     , ftagH jfLLR "jfLLR" (-10) 10
     ]
+
     where
         ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
         ftagH l n mn mx =
@@ -94,11 +95,19 @@ ftagHs = sequenceA . ZipList $
 
 
 jetsHs :: Fills Event
-jetsHs =
-    (F.handles traverse (lvHs <> ftagHs) <$= sequenceA)
-        <> sequenceA (ZipList [nH 10])
-    <$= fmap (view jets)
-    <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
+jetsHs = (F.handles traverse jetHs <$= sequenceA)
+                <> sequenceA (ZipList [nH 10]) 
+            <$= fmap (view jets)
+            <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
+
+    where
+        jetHs = 
+            channels
+                [ ("/allJetFlavs", const True)
+                , ("/light", views truthFlavor (== Just L))
+                , ("/charm", views truthFlavor (== Just C))
+                , ("/bottom", views truthFlavor (== Just B))
+                ] (lvHs <> ftagHs) 
 
 lepsHs :: Fills Event
 lepsHs =

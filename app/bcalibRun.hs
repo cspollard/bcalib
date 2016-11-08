@@ -70,10 +70,12 @@ main = do
         ninitial <- entryd h 4
 
         t <- ttree f "FlavourTagging_Nominal"
-
         nt <- isNullTree t
+
+        let hs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
+
         (fromEnum dsid',) . (ninitial,)
-            <$> F.purely L.fold (lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs) (if nt then L.empty else withWeight <$> project t)
+            <$> F.purely L.fold hs (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 
     BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs)
