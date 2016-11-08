@@ -52,22 +52,26 @@ fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
 nH :: Foldable f => Int -> Fill (f a)
 nH mx = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
     where
-        hist = yodaHist mx 0 (fromIntegral mx) "/n" "$n$" ""
+        hist = yodaHist mx 0 (fromIntegral mx) "/n" "$n$" $
+                    dsigdXpbY "n" "1"
 
 muH :: Fill Event
 muH = Fold (flip $ fillH1 mu) hist id
     where
-        hist = yodaHist 50 0 50 "/mu" "$ <\\mu> $" ""
+        hist = yodaHist 50 0 50 "/mu" "$ <\\mu> $" $
+                    dsigdXpbY "<mu>" "1"
 
 ptH :: HasLorentzVector a => Fill a
 ptH = Fold (flip $ fillH1 lvPt) hist id
     where
-        hist = yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" ""
+        hist = yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" $
+                    dsigdXpbY pt mev
 
 etaH :: HasLorentzVector a => Fill a
 etaH = Fold (flip $ fillH1 lvEta) hist id
     where
-        hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" ""
+        hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" $
+                    dsigdXpbY "\\eta" "rad"
 
 
 -- generic histograms for a lorentz vector
@@ -76,21 +80,21 @@ lvHs = sequenceA (ZipList [ptH, etaH])
 
 ftagHs :: Fills Jet
 ftagHs = sequenceA . ZipList $
-    [ ftagH mv2c00 "mv2c00" (-1) 1
-    , ftagH mv2c10 "mv2c10" (-1) 1
-    , ftagH mv2c20 "mv2c20" (-1) 1
-    , ftagH mv2c100 "mv2c100" (-1) 1
-    , ftagH mv2cl100 "mv2cl100" (-1) 1
-    , ftagH ip2dLLR "ip2dLLR" (-20) 30
-    , ftagH ip3dLLR "ip3dLLR" (-20) 30
-    , ftagH sv1LLR "sv1LLR" (-5) 15
-    , ftagH jfLLR "jfLLR" (-10) 10
+    [ ftagH mv2c00 "MV2c00" (-1) 1
+    , ftagH mv2c10 "MV2c10" (-1) 1
+    , ftagH mv2c20 "MV2c20" (-1) 1
+    , ftagH mv2c100 "MV2c100" (-1) 1
+    , ftagH mv2cl100 "MV2cl100" (-1) 1
+    , ftagH ip2dLLR "IP2D LLR" (-20) 30
+    , ftagH ip3dLLR "IP3D LLR" (-20) 30
+    , ftagH sv1LLR "SV1 LLR" (-5) 15
+    , ftagH jfLLR "JetFitter LLR" (-10) 10
     ]
 
     where
         ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
         ftagH l n mn mx =
-            let hist = yodaHist 50 mn mx ("/" <> n) n ""
+            let hist = yodaHist 50 mn mx ("/" <> T.map (\c -> if c == ' ' then '_' else c) n) n (dsigdXpbY n "1")
             in Fold (flip $ fillH1 l) hist id
 
 
