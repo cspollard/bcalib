@@ -78,8 +78,8 @@ lvsFromTTree ptn etan phin = do
     return $ PtEtaPhiE <$> pts <*> etas <*> phis <*> es
 
 
-readJets :: MonadIO m => TR m (ZipList Jet)
-readJets = do
+readJets :: MonadIO m => Bool -> TR m (ZipList Jet)
+readJets isData = do
     fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
     mv2c00s <- fmap float2Double <$> readBranch "jetsMV2c00"
     mv2c10s <- fmap float2Double <$> readBranch "jetsMV2c10"
@@ -91,8 +91,7 @@ readJets = do
     sv1LLRs <- fmap float2Double <$> readBranch "jetsSV1_loglikelihoodratio"
     sfLLRs <- fmap float2Double <$> readBranch "jetsJetFitter_loglikelihoodratio"
 
-    sid <- readBranch "sampleID"
-    flvs <- if (sid :: CInt) == 0
+    flvs <- if isData
                 then return $ ZipList (repeat Nothing)
                 else fmap (Just . flavFromCInt) <$> readBranch "jetsTrueFlavor"
 

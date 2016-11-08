@@ -60,9 +60,6 @@ readMET m p = do
     phi <- float2Double <$> readBranch p
     return $ PtEtaPhiE et 0 phi et
 
-ci2i :: CInt -> Int
-ci2i = fromEnum
-
 weight :: MonadIO m => TR m Double
 weight = float2Double . product
     <$> sequence
@@ -76,12 +73,21 @@ weight = float2Double . product
 
 
 instance FromTTree Event where
-    fromTTree =
+    fromTTree = do
+        isData <- (== (0 :: CInt)) <$> readBranch "sampleID" 
         Event
             <$> fmap ci2i (readBranch "runNumber")
             <*> fmap ci2i (readBranch "eventNumber")
-            <*> fmap float2Double (readBranch "mu")
+            <*> fmap (convMu isData . float2Double) (readBranch "mu")
             <*> readLeptons
-            <*> fmap getZipList readJets
+            <*> fmap getZipList (readJets isData)
             <*> readMET "MET" "METphi"
             <*> weight
+
+        where
+            ci2i :: CInt -> Int
+            ci2i = fromEnum
+
+            convMu True = id
+            convMu False = (*1.09)
+
