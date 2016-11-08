@@ -71,7 +71,7 @@ etaH :: HasLorentzVector a => Fill a
 etaH = Fold (flip $ fillH1 lvEta) hist id
     where
         hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" $
-                    dsigdXpbY "\\eta" "rad"
+                    dsigdXpbY "\\eta" "{\\mathrm rad}"
 
 
 -- generic histograms for a lorentz vector
