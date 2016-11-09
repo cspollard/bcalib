@@ -78,4 +78,7 @@ main = do
             <$> F.purely L.fold hs (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 
+    putStrLn $ "writing to file " ++ outfile args
+    hFlush stdout
+
     BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs)
