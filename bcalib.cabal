@@ -61,6 +61,8 @@ executable bcalibToYoda
   main-is:             app/bcalibToYoda.hs
   build-depends:       base == 4.9.*
                      , lens == 4.14.*
+                     , foldl == 1.2.*
+                     , list-transformer == 1.0.*
                      , containers == 0.5.*
                      , bytestring == 0.10.*
                      , text == 1.2.*

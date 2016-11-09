@@ -4,10 +4,11 @@
 
 module Main where
 
-import Debug.Trace
-
-import Control.Lens
+import Control.Lens hiding (Fold)
 import Control.Applicative (ZipList(..), liftA2)
+
+import qualified Control.Foldl as F
+import qualified List.Transformer as L
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (decodeLazy)
@@ -59,21 +60,22 @@ main = do
     xsecs <- fromMaybe (error "failed to parse xsec file.")
                 <$> (fmap.fmap.fmap) fst (readXSecFile (xsecfile args))
 
-    im <- foldl (IM.unionWith mergeRuns) IM.empty
-            <$> mapM decodeFile (infiles args)
+    let fole = F.FoldM (\x s -> IM.unionWith mergeRuns x <$> decodeFile s) (return IM.empty) return
+    im <- F.impurely L.foldM fole (L.select (infiles args) :: L.ListT IO String)
 
     let im' = flip IM.mapMaybeWithKey im $
-                \ds (n, hs) -> if ds == 0
-                                then Just $ hs
-                                        & traverse.annots.at "LineStyle" ?~ "none"
-                                        & traverse.annots.at "LineColor" ?~ "Black"
-                                        & traverse.annots.at "DotSize" ?~ "0.1"
-                                        & traverse.annots.at "ErrorBars" ?~ "1"
-                                        & traverse.annots.at "PolyMarker" ?~ "*"
-                                else if processTitle ds == "other"
-                                    then traceShow ("removing dsid" ++ show ds) Nothing
-                                    else traceShow ("keeping dsid" ++ show ds) . Just $
-                                            over (traverse.noted._H1DD) (scaling $ lumi args * (xsecs IM.! ds) / n) hs
+                \ds (n, hs) ->
+                    if ds == 0
+                        then Just $ hs
+                                & traverse.annots.at "LineStyle" ?~ "none"
+                                & traverse.annots.at "LineColor" ?~ "Black"
+                                & traverse.annots.at "DotSize" ?~ "0.1"
+                                & traverse.annots.at "ErrorBars" ?~ "1"
+                                & traverse.annots.at "PolyMarker" ?~ "*"
+                        else if processTitle ds == "other"
+                                then Nothing
+                                else Just $
+                                        over (traverse.noted._H1DD) (scaling $ lumi args * (xsecs IM.! ds) / n) hs
 
     let im'' = let f k = if k /= 0 && (k < 410000 || k > 410004)
                             then dsidOTHER
@@ -81,13 +83,13 @@ main = do
                in IM.mapKeysWith (liftA2 mergeYO) f im'
 
     let im''' = case dsidOTHER `IM.lookup` im'' of
-                    Nothing -> traceShow "999999 not found!" im''
-                    Just hs ->
-                        im'' & ix 410000 %~ liftA2 mergeYO hs
-                             & ix 410001 %~ liftA2 mergeYO hs
-                             & ix 410002 %~ liftA2 mergeYO hs
-                             & ix 410003 %~ liftA2 mergeYO hs
-                             & ix 410004 %~ liftA2 mergeYO hs
+                    Nothing -> im''
+                    Just hs -> im''
+                                & ix 410000 %~ liftA2 mergeYO hs
+                                & ix 410001 %~ liftA2 mergeYO hs
+                                & ix 410002 %~ liftA2 mergeYO hs
+                                & ix 410003 %~ liftA2 mergeYO hs
+                                & ix 410004 %~ liftA2 mergeYO hs
 
     iforM_ im''' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
