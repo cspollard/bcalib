@@ -4,9 +4,7 @@ module BCalib.Jet
     ( module X
     , Jet(Jet)
     , JetFlavor(..)
-    , mv2c00, mv2c10, mv2c20, mv2c100, mv2cl100
-    , ip2dLLR, ip3dLLR, sv1LLR, jfLLR
-    , truthFlavor
+    , mv2info, ip2dinfo, ip3dinfo, sv1info, jfinfo, truthFlavor
     , readJets
     ) where
 
@@ -20,6 +18,11 @@ import GHC.Float (float2Double)
 import Data.HEP.LorentzVector as X
 import Data.TTree
 
+import BCalib.IP2D as X
+import BCalib.IP3D as X
+import BCalib.JF as X
+import BCalib.MV2 as X
+import BCalib.SV1 as X
 
 data JetFlavor = L | C | B
     deriving (Generic, Show, Eq, Ord)
@@ -31,41 +34,21 @@ flavFromCInt x = case x of
                     0 -> L
                     _ -> error $ "bad jet flavor label: " ++ show x
 
+
 data Jet =
     Jet
         { _jfourmom :: PtEtaPhiE
-        , _mv2c00 :: Double
-        , _mv2c10 :: Double
-        , _mv2c20 :: Double
-        , _mv2c100 :: Double
-        , _mv2cl100 :: Double
-        , _ip2dLLR :: Double
-        , _ip3dLLR :: Double
-        , _sv1LLR :: Double
-        , _jfLLR :: Double
-        , _jTruthFlavor :: Maybe JetFlavor
+        , _mv2info :: MV2Info
+        , _ip2dinfo :: IP2DInfo
+        , _ip3dinfo :: IP3DInfo
+        , _sv1info :: SV1Info
+        , _jfinfo :: JFInfo
+        , _truthFlavor :: Maybe JetFlavor
         } deriving (Generic, Show)
 
 instance HasLorentzVector Jet where
-    toPtEtaPhiE = lens _jfourmom $ \j x -> j { _jfourmom = x }
+    toPtEtaPhiE = jfourmom
 
-mv2c00, mv2c10, mv2c20, mv2c100, mv2cl100
-    :: Lens' Jet Double
-mv2c00 = lens _mv2c00 $ \j x -> j { _mv2c00 = x }
-mv2c10 = lens _mv2c10 $ \j x -> j { _mv2c10 = x }
-mv2c20 = lens _mv2c20 $ \j x -> j { _mv2c20 = x }
-mv2c100 = lens _mv2c100 $ \j x -> j { _mv2c100 = x }
-mv2cl100 = lens _mv2cl100 $ \j x -> j { _mv2cl100 = x }
-
-ip2dLLR, ip3dLLR, sv1LLR, jfLLR
-    :: Lens' Jet Double
-ip2dLLR = lens _ip2dLLR $ \j x -> j { _ip2dLLR = x }
-ip3dLLR = lens _ip3dLLR $ \j x -> j { _ip3dLLR = x }
-sv1LLR = lens _sv1LLR $ \j x -> j { _sv1LLR = x }
-jfLLR = lens _jfLLR $ \j x -> j { _jfLLR = x }
-
-truthFlavor :: Lens' Jet (Maybe JetFlavor)
-truthFlavor = lens _jTruthFlavor $ \j x -> j { _jTruthFlavor = x }
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)
 lvsFromTTree ptn etan phin = do
@@ -81,15 +64,12 @@ lvsFromTTree ptn etan phin = do
 readJets :: MonadIO m => Bool -> TR m (ZipList Jet)
 readJets isData = do
     fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
-    mv2c00s <- fmap float2Double <$> readBranch "jetsMV2c00"
-    mv2c10s <- fmap float2Double <$> readBranch "jetsMV2c10"
-    mv2c20s <- fmap float2Double <$> readBranch "jetsMV2c20"
-    mv2c100s <- fmap float2Double <$> readBranch "jetsMV2c100"
-    mv2cl100s <- fmap float2Double <$> readBranch "jetsMV2cl100"
-    ip2dLLRs <- fmap float2Double <$> readBranch "jetsIP2D_loglikelihoodratio"
-    ip3dLLRs <- fmap float2Double <$> readBranch "jetsIP3D_loglikelihoodratio"
-    sv1LLRs <- fmap float2Double <$> readBranch "jetsSV1_loglikelihoodratio"
-    sfLLRs <- fmap float2Double <$> readBranch "jetsJetFitter_loglikelihoodratio"
+
+    mv2s <- readMV2s
+    ip2ds <- readIP2Ds
+    ip3ds <- readIP3Ds
+    sv1s <- readSV1s
+    jfs <- readJFs
 
     flvs <- if isData
                 then return $ ZipList (repeat Nothing)
@@ -97,13 +77,79 @@ readJets isData = do
 
     return $ Jet
             <$> fourmoms
-            <*> mv2c00s
-            <*> mv2c10s
-            <*> mv2c20s
-            <*> mv2c100s
-            <*> mv2cl100s
-            <*> ip2dLLRs
-            <*> ip3dLLRs
-            <*> sv1LLRs
-            <*> sfLLRs
+            <*> mv2s
+            <*> ip2ds
+            <*> ip3ds
+            <*> sv1s
+            <*> jfs
             <*> flvs
+
+
+
+-- TODO
+-- can't get TH working with external libs (e.g. root)
+
+
+ip2dinfo :: Lens' Jet IP2DInfo
+ip2dinfo
+  f_ai3K
+  (Jet x1_ai3L x2_ai3M x3_ai3N x4_ai3O x5_ai3P x6_ai3Q x7_ai3R)
+  = fmap
+      (\ y1_ai3S
+         -> Jet x1_ai3L x2_ai3M y1_ai3S x4_ai3O x5_ai3P x6_ai3Q x7_ai3R)
+      (f_ai3K x3_ai3N)
+{-# INLINE ip2dinfo #-}
+ip3dinfo :: Lens' Jet IP3DInfo
+ip3dinfo
+  f_ai3T
+  (Jet x1_ai3U x2_ai3V x3_ai3W x4_ai3X x5_ai3Y x6_ai3Z x7_ai40)
+  = fmap
+      (\ y1_ai41
+         -> Jet x1_ai3U x2_ai3V x3_ai3W y1_ai41 x5_ai3Y x6_ai3Z x7_ai40)
+      (f_ai3T x4_ai3X)
+{-# INLINE ip3dinfo #-}
+truthFlavor :: Lens' Jet (Maybe JetFlavor)
+truthFlavor
+  f_ai42
+  (Jet x1_ai43 x2_ai44 x3_ai45 x4_ai46 x5_ai47 x6_ai48 x7_ai49)
+  = fmap
+      (\ y1_ai4a
+         -> Jet x1_ai43 x2_ai44 x3_ai45 x4_ai46 x5_ai47 x6_ai48 y1_ai4a)
+      (f_ai42 x7_ai49)
+{-# INLINE truthFlavor #-}
+jfinfo :: Lens' Jet JFInfo
+jfinfo
+  f_ai4b
+  (Jet x1_ai4c x2_ai4d x3_ai4e x4_ai4f x5_ai4g x6_ai4h x7_ai4i)
+  = fmap
+      (\ y1_ai4j
+         -> Jet x1_ai4c x2_ai4d x3_ai4e x4_ai4f x5_ai4g y1_ai4j x7_ai4i)
+      (f_ai4b x6_ai4h)
+{-# INLINE jfinfo #-}
+jfourmom :: Lens' Jet PtEtaPhiE
+jfourmom
+  f_ai4k
+  (Jet x1_ai4l x2_ai4m x3_ai4n x4_ai4o x5_ai4p x6_ai4q x7_ai4r)
+  = fmap
+      (\ y1_ai4s
+         -> Jet y1_ai4s x2_ai4m x3_ai4n x4_ai4o x5_ai4p x6_ai4q x7_ai4r)
+      (f_ai4k x1_ai4l)
+{-# INLINE jfourmom #-}
+mv2info :: Lens' Jet MV2Info
+mv2info
+  f_ai4t
+  (Jet x1_ai4u x2_ai4v x3_ai4w x4_ai4x x5_ai4y x6_ai4z x7_ai4A)
+  = fmap
+      (\ y1_ai4B
+         -> Jet x1_ai4u y1_ai4B x3_ai4w x4_ai4x x5_ai4y x6_ai4z x7_ai4A)
+      (f_ai4t x2_ai4v)
+{-# INLINE mv2info #-}
+sv1info :: Lens' Jet SV1Info
+sv1info
+  f_ai4C
+  (Jet x1_ai4D x2_ai4E x3_ai4F x4_ai4G x5_ai4H x6_ai4I x7_ai4J)
+  = fmap
+      (\ y1_ai4K
+         -> Jet x1_ai4D x2_ai4E x3_ai4F x4_ai4G y1_ai4K x6_ai4I x7_ai4J)
+      (f_ai4C x5_ai4H)
+{-# INLINE sv1info #-}
