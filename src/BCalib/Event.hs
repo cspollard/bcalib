@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module BCalib.Event
@@ -5,10 +6,12 @@ module BCalib.Event
     , Event(..)
     , runNumber, eventNumber, mu
     , leptons, jets, met, eventWeight
+    , eventHs
     ) where
 
 import Control.Lens
 import Control.Applicative (getZipList)
+import qualified Control.Foldl as F
 
 import GHC.Generics (Generic)
 import GHC.Float (float2Double)
@@ -16,6 +19,7 @@ import GHC.Float (float2Double)
 import Data.HEP.LorentzVector as X
 import Data.TTree
 
+import BCalib.Histograms
 import BCalib.Jet as X
 import BCalib.Lepton as X
 
@@ -54,6 +58,28 @@ eventWeight :: Lens' Event Double
 eventWeight = lens _eventWeight $ \e x -> e { _eventWeight = x }
 
 
+jetsHs :: Fills Event
+jetsHs = (F.handles traverse jetHs <$= sequenceA)
+                <> sequenceA (ZipList [nH 10]) 
+            <$$= jets
+            <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
+
+lepsHs :: Fills Event
+lepsHs =
+    -- TODO
+    -- must be better way to write this...
+    F.handles traverse lepHs <$= (\(w, e) -> let (l1, l2) = view leptons e in [(w, l1), (w, l2)])
+    <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
+
+muH :: Fill Event
+muH = fillH1L mu $
+    yodaHist 50 0 50 "/mu" "$ <\\mu> $" (dsigdXpbY "<\\mu>" "1")
+
+
+eventHs :: Fills Event
+eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
+
+
 readMET :: MonadIO m => String -> String -> TR m PtEtaPhiE
 readMET m p = do
     et <- float2Double <$> readBranch m
@@ -90,4 +116,3 @@ instance FromTTree Event where
 
             convMu True = id
             convMu False = (*1.09)
-

@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module BCalib.Jet
@@ -5,19 +6,19 @@ module BCalib.Jet
     , Jet(Jet)
     , JetFlavor(..)
     , mv2info, ip2dinfo, ip3dinfo, sv1info, jfinfo, truthFlavor
+    , jetHs
     , readJets
     ) where
 
 import Control.Lens
-import Control.Applicative (ZipList(..))
 
 import Foreign.C.Types (CInt)
-import GHC.Generics
+import GHC.Generics hiding (to)
 import GHC.Float (float2Double)
 
-import Data.HEP.LorentzVector as X
-import Data.TTree
+import BCalib.Histograms
 
+import Data.HEP.LorentzVector as X
 import BCalib.IP2D as X
 import BCalib.IP3D as X
 import BCalib.JF as X
@@ -49,6 +50,15 @@ data Jet =
 instance HasLorentzVector Jet where
     toPtEtaPhiE = jfourmom
 
+
+jetHs :: Fills Jet
+jetHs =
+    channels
+        [ ("/allJetFlavs", const True)
+        , ("/light", views truthFlavor (== Just L))
+        , ("/charm", views truthFlavor (== Just C))
+        , ("/bottom", views truthFlavor (== Just B))
+        ] (lvHs <> (sv1Hs <$$= sv1info))
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)
 lvsFromTTree ptn etan phin = do

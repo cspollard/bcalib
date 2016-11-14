@@ -3,27 +3,32 @@
 
 module BCalib.Histograms
     ( module X
+    , fillH1L, fillP1L
+    , Fill, Fills, (<$$=)
+    , channel, channels
+    , lvHs, nH
+    ) where
+{-
     , eventHs
     , withWeight
     , lepFlavorChannels
     , lepChargeChannels
     , nJetChannels
     ) where
+-}
 
-import Control.Lens hiding (Fold)
-import Control.Arrow ((&&&))
-import Control.Applicative
+import Control.Lens
+import Control.Applicative as X (ZipList(..), liftA2)
 
-import Control.Foldl (Fold(..))
 import qualified Control.Foldl as F
 
-import Data.Semigroup
+import Data.Semigroup as X
 import qualified Data.Text as T
 
+import Data.HEP.LorentzVector
 import Data.YODA.Obj as X
 import Data.TTree as X
 import Data.Atlas.Histogramming as X
-import BCalib.Event
 
 instance Semigroup (ZipList a) where
     ZipList xs <> ZipList ys = ZipList $ xs <> ys
@@ -32,100 +37,22 @@ instance Monoid (ZipList a) where
     mempty = ZipList []
     mappend = (<>)
 
-instance Semigroup b => Semigroup (Fold a b) where
+instance Semigroup b => Semigroup (F.Fold a b) where
     (<>) = liftA2 (<>)
 
 
-type Fill a = Fold (Double, a) YodaObj
-type Fills a = Fold (Double, a) (ZipList YodaObj)
+type Fill a = F.Fold (Double, a) YodaObj
+type Fills a = F.Fold (Double, a) (ZipList YodaObj)
 
 fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
 fill l (w, x) = filling w (l x)
 
-fillH1 :: Getter a Double -> (Double, a) -> YodaObj -> YodaObj
-fillH1 l (w, x) = over (noted._H1DD) (fill (view l) (w, x))
+fillH1L :: Getter a Double -> YodaObj -> Fill a
+fillH1L l yh = F.Fold (\yh' xs -> over (noted._H1DD) (fill (view l) xs) yh') yh id
 
-fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
-fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
+fillP1L :: Getter a (Double, Double) -> YodaObj -> Fill a
+fillP1L l yp = F.Fold (\yp' xs -> over (noted._P1DD) (fill (view l) xs) yp') yp id
 
-
-nH :: Foldable f => Int -> Fill (f a)
-nH mx = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
-    where
-        hist = yodaHist mx 0 (fromIntegral mx) "/n" "$n$" $
-                    dsigdXpbY "n" "1"
-
-muH :: Fill Event
-muH = Fold (flip $ fillH1 mu) hist id
-    where
-        hist = yodaHist 50 0 50 "/mu" "$ <\\mu> $" $
-                    dsigdXpbY "<mu>" "1"
-
-ptH :: HasLorentzVector a => Fill a
-ptH = Fold (flip $ fillH1 lvPt) hist id
-    where
-        hist = yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" $
-                    dsigdXpbY pt mev
-
-etaH :: HasLorentzVector a => Fill a
-etaH = Fold (flip $ fillH1 lvEta) hist id
-    where
-        hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" $
-                    dsigdXpbY "\\eta" "{\\mathrm rad}"
-
-
--- generic histograms for a lorentz vector
-lvHs :: HasLorentzVector a => Fills a
-lvHs = sequenceA (ZipList [ptH, etaH])
-
-ftagHs :: Fills Jet
-ftagHs = sequenceA . ZipList $
-    [ ftagH mv2c00 "MV2c00" (-1) 1
-    , ftagH mv2c10 "MV2c10" (-1) 1
-    , ftagH mv2c20 "MV2c20" (-1) 1
-    , ftagH mv2c100 "MV2c100" (-1) 1
-    , ftagH mv2cl100 "MV2cl100" (-1) 1
-    , ftagH ip2dLLR "IP2D LLR" (-20) 30
-    , ftagH ip3dLLR "IP3D LLR" (-20) 30
-    , ftagH sv1LLR "SV1 LLR" (-5) 15
-    , ftagH jfLLR "JetFitter LLR" (-10) 10
-    ]
-
-    where
-        ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
-        ftagH l n mn mx =
-            let hist = yodaHist 50 mn mx ("/" <> T.map (\c -> if c == ' ' then '_' else c) n) n (dsigdXpbY n "1")
-            in Fold (flip $ fillH1 l) hist id
-
-
-jetsHs :: Fills Event
-jetsHs = (F.handles traverse jetHs <$= sequenceA)
-                <> sequenceA (ZipList [nH 10]) 
-            <$= fmap (view jets)
-            <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
-
-    where
-        jetHs = 
-            channels
-                [ ("/allJetFlavs", const True)
-                , ("/light", views truthFlavor (== Just L))
-                , ("/charm", views truthFlavor (== Just C))
-                , ("/bottom", views truthFlavor (== Just B))
-                ] (lvHs <> ftagHs) 
-
-lepsHs :: Fills Event
-lepsHs =
-    -- TODO
-    -- must be better way to write this...
-    F.handles traverse lvHs <$= (\(w, e) -> let (l1, l2) = view leptons e in [(w, l1), (w, l2)])
-    <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
-
-
-withWeight :: Event -> (Double, Event)
-withWeight = view eventWeight &&& id
-
-eventHs :: Fills Event
-eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
 
 selector :: (a -> Bool) -> Prism' (Double, a) (Double, a)
 selector f = prism' id $ \wx@(_, x) -> if f x then Just wx else Nothing
@@ -136,6 +63,80 @@ channel n f fills = fmap (over path (n <>)) <$> F.handles (selector f) fills
 
 channels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
 channels fns fills = fmap mconcat . sequenceA $ uncurry channel <$> fns <*> pure fills
+
+
+nH :: Foldable f => Int -> Fill (f a)
+nH mx = fillH1L (to $ fromIntegral.length) $
+    yodaHist mx 0 (fromIntegral mx) "/n" "$n$" (dsigdXpbY "n" "1")
+
+ptH :: HasLorentzVector a => Fill a
+ptH = fillH1L lvPt $
+    yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" (dsigdXpbY pt mev)
+
+etaH :: HasLorentzVector a => Fill a
+etaH = fillH1L lvEta $
+    yodaHist 30 (-3) 3 "/eta" "$\\eta$" (dsigdXpbY "\\eta" "{\\mathrm rad}")
+
+infixl 2 <$$=
+(<$$=) :: Fills b -> Getter a b -> Fills a
+fs <$$= l = F.premap (fmap (view l)) fs
+
+
+-- generic histograms for a lorentz vector
+lvHs :: HasLorentzVector a => Fills a
+lvHs = sequenceA (ZipList [ptH, etaH])
+
+{-
+fillH1 :: Getter a Double -> (Double, a) -> YodaObj -> YodaObj
+fillH1 l (w, x) = over (noted._H1DD) (fill (view l) (w, x))
+
+fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
+fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
+
+
+
+ftagHs :: Fills Jet
+ftagHs = sequenceA . ZipList $
+    [ ftagH mv2c00 "mv2c00" "MV2c00" (-1) 1
+    , ftagH mv2c10 "mv2c10" "MV2c10"  (-1) 1
+    , ftagH mv2c20 "mv2c20" "MV2c20"  (-1) 1
+    , ftagH mv2c100 "mv2c100" "MV2c100"  (-1) 1
+    , ftagH mv2cl100 "mv2cl100" "MV2cl100"  (-1) 1
+
+    , ftagH ip2dNTrk "ip2dntrk" "IP2D track multiplicity" 0 10
+    , ftagH ip2dLLR "ip2dllr" "IP2D LLR" (-20) 30
+    , ftagH ip2dPu "ip2dpu" "IP2D P(light)" 0 1
+    , ftagH ip2dPc "ip2dpc" "IP2D P(charm)" 0 1
+    , ftagH ip2dPb "ip2dpb" "IP2D P(bottom)" 0 1
+
+    , ftagH ip3dNTrk "ip3dntrk" "IP3D track multiplicity" 0 10
+    , ftagH ip3dLLR "ip3dllr" "IP3D LLR" (-20) 30
+    , ftagH ip3dPu "ip3dpu" "IP3D P(light)" 0 1
+    , ftagH ip3dPc "ip3dpc" "IP3D P(charm)" 0 1
+    , ftagH ip3dPb "ip3dpb" "IP3D P(bottom)" 0 1
+
+    , ftagH jfNVtx "jfnvtx" "JetFitter vertex multiplicity" 0 5
+    , ftagH jfMass "jfmass" "JetFitter mass" 0 10000
+    , ftagH jfNSingleTrks "jfnsingtrks" "JetFitter number of single tracks" 0 10
+    , ftagH jfNTrksAtVtx "jfntrksatvtx" "JetFitter number of tracks at vertex" 0 10
+    , ftagH jfEfrac "jfefrac" "JetFitter energy fraction" 0 1
+    , ftagH jfN2TPair "jfn2tpair" "JetFitter n2tpair" 0 10
+    , ftagH jfLLR "jfllr" "JetFitter LLR" (-20) 30
+    , ftagH jfPu "jfpu" "JetFitter P(light)" 0 1
+    , ftagH jfPc "jfpc" "JetFitter P(charm)" 0 1
+    , ftagH jfPb "jfpb" "JetFitter P(bottom)" 0 1
+    ]
+
+    where
+        ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
+        ftagH l n t mn mx =
+            let hist = yodaHist 50 mn mx n t (dsigdXpbY n "1")
+            in Fold (flip $ fillH1 l) hist id
+
+
+
+withWeight :: Event -> (Double, Event)
+withWeight = view eventWeight &&& id
 
 
 leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
@@ -170,3 +171,4 @@ nJetChannels =
         , ("/3jet", (== 3) . views jets length)
         , ("/4pjet", (>= 4) . views jets length)
         ]
+-}

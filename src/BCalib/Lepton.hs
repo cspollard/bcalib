@@ -2,10 +2,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module BCalib.Lepton
-    ( module X
-    , Lepton(Lepton)
+    ( Lepton(Lepton)
     , lepFlavor, lepCharge, readLeptons
     , LFlavor(..), LCharge(..)
+    , lepHs
     ) where
 
 import Control.Lens
@@ -14,8 +14,9 @@ import Foreign.C.Types (CInt)
 import GHC.Generics
 import GHC.Float (float2Double)
 
-import Data.HEP.LorentzVector as X
+import Data.HEP.LorentzVector
 import Data.TTree
+import BCalib.Histograms
 
 
 data LFlavor = Electron | Muon
@@ -39,6 +40,9 @@ lepFlavor = lens _flavor $ \l x -> l { _flavor = x }
 
 lepCharge :: Lens' Lepton LCharge
 lepCharge = lens _charge $ \l x -> l { _charge = x }
+
+lepHs :: Fills Lepton
+lepHs = lvHs
 
 readLeptons :: MonadIO m => TR m (Lepton, Lepton)
 readLeptons = do
