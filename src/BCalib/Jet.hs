@@ -58,7 +58,15 @@ jetHs =
         , ("/light", views truthFlavor (== Just L))
         , ("/charm", views truthFlavor (== Just C))
         , ("/bottom", views truthFlavor (== Just B))
-        ] (lvHs <> (sv1Hs <$$= sv1info))
+        ] $ mconcat
+        [ lvHs
+        , sv1Hs <$$= sv1info
+        , jfHs <$$= jfinfo
+        , ip2dHs <$$= ip2dinfo
+        , ip3dHs <$$= ip3dinfo
+        , mv2Hs <$$= mv2info
+        ]
+
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)
 lvsFromTTree ptn etan phin = do

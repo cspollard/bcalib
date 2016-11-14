@@ -1,16 +1,13 @@
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.MV2 where
 
-import Control.Lens
-import Control.Applicative (ZipList(..))
-
 import GHC.Float
-import GHC.Generics
+import GHC.Generics hiding (to)
 
-import Data.TTree
+import BCalib.Histograms
 
 
 data MV2Info =
@@ -21,6 +18,16 @@ data MV2Info =
         , _mv2c100 :: Double
         , _mv2cl100 :: Double
         } deriving (Generic, Show)
+
+mv2Hs :: Fills MV2Info
+mv2Hs = sequenceA . ZipList $
+    [ fillH1L mv2c00 $ yodaHist 50 (-1) 1 "/mv2c00" "MV2c00" (dsigdXpbY "MV2" "1")
+    , fillH1L mv2c10 $ yodaHist 50 (-1) 1 "/mv2c10" "MV2c10" (dsigdXpbY "MV2" "1")
+    , fillH1L mv2c20 $ yodaHist 50 (-1) 1 "/mv2c20" "MV2c20" (dsigdXpbY "MV2" "1")
+    , fillH1L mv2c100 $ yodaHist 50 (-1) 1 "/mv2c100" "MV2c100" (dsigdXpbY "MV2" "1")
+    , fillH1L mv2cl100 $ yodaHist 50 (-1) 1 "/mv2cl100" "MV2cl100" (dsigdXpbY "MV2" "1")
+    ]
+
 
 readMV2s :: MonadIO m => TR m (ZipList MV2Info)
 readMV2s = do

@@ -1,16 +1,13 @@
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.IP2D where
 
-import Control.Lens
-import Control.Applicative (ZipList(..))
-
 import GHC.Float
-import GHC.Generics
+import GHC.Generics hiding (to)
 
-import Data.TTree
+import BCalib.Histograms
 
 
 data IP2DInfo =
@@ -22,7 +19,20 @@ data IP2DInfo =
         , _ip2dPb :: Double
         } deriving (Generic, Show)
 
--- makeLenses '' IP2DInfo
+
+ip2dHs :: Fills IP2DInfo
+ip2dHs = sequenceA . ZipList $
+    [ fillH1L (ip2dNTrk.integralL) $ yodaHist 10 0 10 "/ip2dntrk" "IP2D trakc multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L ip2dLLR $ yodaHist 50 (-20) 30 "/ip2dllr" "IP2D LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L ip2dPu $ yodaHist 50 0 1 "/ip2dpu" "IP2D P(light)" (dsigdXpbY "P" "1")
+    , fillH1L ip2dPc $ yodaHist 50 0 1 "/ip2dpc" "IP2D P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L ip2dPb $ yodaHist 50 0 1 "/ip2dpb" "IP2D P(bottom)" (dsigdXpbY "P" "1")
+    ]
+
+    where
+        integralL :: Num a => Getter Int a
+        integralL = to fromIntegral
+
 
 readIP2Ds :: MonadIO m => TR m (ZipList IP2DInfo)
 readIP2Ds = do

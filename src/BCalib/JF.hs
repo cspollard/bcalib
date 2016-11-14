@@ -1,16 +1,13 @@
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.JF where
 
-import Control.Lens
-import Control.Applicative (ZipList(..))
-
 import GHC.Float
-import GHC.Generics
+import GHC.Generics hiding (to)
 
-import Data.TTree
+import BCalib.Histograms
 
 
 data JFInfo =
@@ -18,7 +15,7 @@ data JFInfo =
         { _jfNVtx :: Int
         , _jfMass :: Double
         , _jfNSingleTrks :: Int
-        , _jfNNTrksAtVtx :: Int
+        , _jfNTrksAtVtx :: Int
         , _jfEfrac :: Double
         , _jfN2TPair :: Int
         , _jfLLR :: Double
@@ -27,7 +24,24 @@ data JFInfo =
         , _jfPb :: Double
         } deriving (Generic, Show)
 
--- makeLenses '' JFInfo
+jfHs :: Fills JFInfo
+jfHs = sequenceA . ZipList $
+    [ fillH1L (jfNVtx.integralL) $ yodaHist 5 0 5 "/jfnvtx" "JF vertex multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L jfMass $ yodaHist 50 0 10000 "/jfmass" "JF mass [MeV]" (dsigdXpbY "m" "MeV")
+    , fillH1L (jfNSingleTrks.integralL) $ yodaHist 10 0 10 "/jfnsingtrks" "JF single track multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L (jfNTrksAtVtx.integralL) $ yodaHist 10 0 10 "/jfntrksatvtx" "JF vertex track multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L jfEfrac $ yodaHist 50 0 1 "/jfefrac" "JF energy fraction" (dsigdXpbY "fraction" "1")
+    , fillH1L (jfN2TPair.integralL) $ yodaHist 20 0 20 "/jfn2tpair" "JF n2tpair" (dsigdXpbY "n" "1")
+    , fillH1L jfLLR $ yodaHist 50 (-20) 30 "/jfllr" "JF LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L jfPu $ yodaHist 50 0 1 "/jfpu" "JF P(light)" (dsigdXpbY "P" "1")
+    , fillH1L jfPc $ yodaHist 50 0 1 "/jfpc" "JF P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L jfPb $ yodaHist 50 0 1 "/jfpb" "JF P(bottom)" (dsigdXpbY "P" "1")
+    ]
+
+    where
+        integralL :: Num a => Getter Int a
+        integralL = to fromIntegral
+
 
 readJFs :: MonadIO m => TR m (ZipList JFInfo)
 readJFs = do
@@ -175,8 +189,8 @@ jfN2TPair
               x10_ajiB)
       (f_ajir x6_ajix)
 {-# INLINE jfN2TPair #-}
-jfNNTrksAtVtx :: Lens' JFInfo Int
-jfNNTrksAtVtx
+jfNTrksAtVtx :: Lens' JFInfo Int
+jfNTrksAtVtx
   f_ajiD
   (JFInfo x1_ajiE
           x2_ajiF
@@ -202,7 +216,7 @@ jfNNTrksAtVtx
               x9_ajiM
               x10_ajiN)
       (f_ajiD x4_ajiH)
-{-# INLINE jfNNTrksAtVtx #-}
+{-# INLINE jfNTrksAtVtx #-}
 jfNSingleTrks :: Lens' JFInfo Int
 jfNSingleTrks
   f_ajiP

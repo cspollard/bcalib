@@ -1,16 +1,13 @@
--- {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.IP3D where
 
-import Control.Lens
-import Control.Applicative (ZipList(..))
-
 import GHC.Float
-import GHC.Generics
+import GHC.Generics hiding (to)
 
-import Data.TTree
+import BCalib.Histograms
 
 
 data IP3DInfo =
@@ -22,7 +19,20 @@ data IP3DInfo =
         , _ip3dPb :: Double
         } deriving (Generic, Show)
 
--- makeLenses '' IP3DInfo
+
+ip3dHs :: Fills IP3DInfo
+ip3dHs = sequenceA . ZipList $
+    [ fillH1L (ip3dNTrk.integralL) $ yodaHist 10 0 10 "/ip3dntrk" "IP3D trakc multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L ip3dLLR $ yodaHist 50 (-20) 30 "/ip3dllr" "IP3D LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L ip3dPu $ yodaHist 50 0 1 "/ip3dpu" "IP3D P(light)" (dsigdXpbY "P" "1")
+    , fillH1L ip3dPc $ yodaHist 50 0 1 "/ip3dpc" "IP3D P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L ip3dPb $ yodaHist 50 0 1 "/ip3dpb" "IP3D P(bottom)" (dsigdXpbY "P" "1")
+    ]
+
+    where
+        integralL :: Num a => Getter Int a
+        integralL = to fromIntegral
+
 
 readIP3Ds :: MonadIO m => TR m (ZipList IP3DInfo)
 readIP3Ds = do

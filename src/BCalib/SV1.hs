@@ -4,13 +4,8 @@
 
 module BCalib.SV1 where
 
-import Control.Lens
-import Control.Applicative (ZipList(..))
-
 import GHC.Float
 import GHC.Generics hiding (to)
-
-import Data.TTree
 
 import BCalib.Histograms
 

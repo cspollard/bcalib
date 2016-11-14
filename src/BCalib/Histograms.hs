@@ -12,7 +12,7 @@ module BCalib.Histograms
     ) where
 -}
 
-import Control.Lens
+import Control.Lens as X
 import Control.Applicative as X (ZipList(..), liftA2)
 
 import qualified Control.Foldl as F
@@ -20,7 +20,7 @@ import qualified Control.Foldl as F
 import Data.Semigroup as X
 import qualified Data.Text as T
 
-import Data.HEP.LorentzVector
+import Data.HEP.LorentzVector as X
 import Data.YODA.Obj as X
 import Data.TTree as X
 import Data.Atlas.Histogramming as X
@@ -110,16 +110,6 @@ ftagHs = sequenceA . ZipList $
     , ftagH ip3dPc "ip3dpc" "IP3D P(charm)" 0 1
     , ftagH ip3dPb "ip3dpb" "IP3D P(bottom)" 0 1
 
-    , ftagH jfNVtx "jfnvtx" "JetFitter vertex multiplicity" 0 5
-    , ftagH jfMass "jfmass" "JetFitter mass" 0 10000
-    , ftagH jfNSingleTrks "jfnsingtrks" "JetFitter number of single tracks" 0 10
-    , ftagH jfNTrksAtVtx "jfntrksatvtx" "JetFitter number of tracks at vertex" 0 10
-    , ftagH jfEfrac "jfefrac" "JetFitter energy fraction" 0 1
-    , ftagH jfN2TPair "jfn2tpair" "JetFitter n2tpair" 0 10
-    , ftagH jfLLR "jfllr" "JetFitter LLR" (-20) 30
-    , ftagH jfPu "jfpu" "JetFitter P(light)" 0 1
-    , ftagH jfPc "jfpc" "JetFitter P(charm)" 0 1
-    , ftagH jfPb "jfpb" "JetFitter P(bottom)" 0 1
     ]
 
     where
