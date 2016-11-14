@@ -64,15 +64,18 @@ eventWeight = lens _eventWeight $ \e x -> e { _eventWeight = x }
 
 
 jetsHs :: Fills Event
-jetsHs = allHs <> jet0Hs <$$= jets
+jetsHs = allHs <> jet0Hs <> jet1Hs <$$= jets
 
     where
         allHs = (F.handles traverse jetHs <$= sequenceA)
                     <> sequenceA (ZipList [nH 10])
                 <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
 
-        jet0Hs = F.handles (taking 1 traverse) jetHs <$= sequenceA
+        jet0Hs = F.handles (ix 0) jetHs <$= sequenceA
                 <&> fmap (over path ("/jet0" <>) . over xlabel ("leading jet " <>))
+
+        jet1Hs = F.handles (ix 1) jetHs <$= sequenceA
+                <&> fmap (over path ("/jet1" <>) . over xlabel ("subleading jet " <>))
 
 
 lepsHs :: Fills Event

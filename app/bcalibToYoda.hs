@@ -4,9 +4,7 @@
 
 module Main where
 
-import Control.Lens hiding (Fold)
-import Control.Applicative (ZipList(..))
-import Control.Monad (when)
+import Data.Function (on)
 
 import qualified Control.Foldl as F
 import qualified List.Transformer as L
@@ -29,6 +27,8 @@ import Data.Atlas.ProcessInfo
 
 import Options.Applicative
 import System.IO (hFlush, stdout)
+
+import BCalib.Histograms hiding (option, (<>))
 
 data InArgs =
     InArgs
@@ -98,28 +98,42 @@ main = do
                     (T.unlines $ hs ^.. traverse.to printYObj)
 
 
-    {-
     -- TODO
     -- this could be optimized a lot.
-    let immc = im''' `sans` 0 `sans` dsidOTHER
-    let mdata = im''' IM.! 0
-    let imhf = flip (over traverse) immc . M.filterWithKey $
-                    \k _ -> "/bottom/" `T.isInfixOf` k
+    let immc = sans 0 . sans dsidOTHER $ im'''
 
-    -- TODO
-    -- this won't work
-    -- need to merge charm and light first.
-    let imlf = flip (over traverse) immc . M.filterWithKey $
-                    \k _ -> "/light/" `T.isInfixOf` k || "/charm/" `T.isInfixOf` k
+    -- light flavor
+    let iml = flip (over traverse) immc . M.filterWithKey $
+                    \k _ -> "/light/" `T.isInfixOf` k
+    let iml' = flip (over (traverse.traverse)) iml $
+                    (path %~ T.replace "/light/" "/allJetFlavs/")
+                    . (annots.at "Title" ?~ "light")
+    iforM_ iml' $
+        \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_light.yoda")
+                    (T.unlines $ hs ^.. traverse.to printYObj)
 
-    let imlf' = flip (over traverse) imlf $
-                    M.mapKeys (T.replace "light/" "" . T.replace "charm/" "")
+    -- charm
+    -- need to add light contribution for stack plots.
+    let imc = flip (over traverse) immc . M.filterWithKey $
+                    \k _ -> "/charm/" `T.isInfixOf` k
+    let imc' = flip (over (traverse.traverse)) imc $
+                    (path %~ T.replace "/charm/" "/allJetFlavs/")
+                    . (annots.at "Title" ?~ "charm")
+    let imc'' = IM.intersectionWith (liftA2 mergeYO `on` (ZipList . M.elems)) imc' iml'
+    iforM_ imc'' $
+        \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_charm.yoda")
+                    (T.unlines $ hs ^.. traverse.to printYObj)
 
-    let imhf' = flip (over traverse) imhf $
-                    M.mapKeys (T.replace "bottom/" "")
+    -- bottom
+    -- use allJetFlavs since we're stacking on top of light and charm.
+    let imb = flip (over traverse) immc . M.filterWithKey $
+                    \k _ -> "/allJetFlavs/" `T.isInfixOf` k
+    let imb' = flip (set (traverse.traverse.annots.at "Title")) imb $
+                    Just "charm"
+    iforM_ imb' $
+        \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
+                    (T.unlines $ hs ^.. traverse.to printYObj)
 
-    return ()
-    -}
 
     where
         dsidOTHER = 999999
@@ -140,7 +154,7 @@ decodeFile f = do
     case eim of
          Left _ -> error $ "failed to decode file " ++ f
 
-         -- throw out samples we don't need immediately.
+         -- immediately throw out samples we don't need
          Right im -> return . flip IM.mapMaybeWithKey im $
                         \ds hs -> if processTitle ds == "other"
                                     then Nothing
