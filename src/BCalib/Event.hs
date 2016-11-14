@@ -7,9 +7,14 @@ module BCalib.Event
     , runNumber, eventNumber, mu
     , leptons, jets, met, eventWeight
     , eventHs
+    , withWeight
+    , lepFlavorChannels
+    , lepChargeChannels
+    , nJetChannels
     ) where
 
 import Control.Lens
+import Control.Arrow ((&&&))
 import Control.Applicative (getZipList)
 import qualified Control.Foldl as F
 
@@ -116,3 +121,40 @@ instance FromTTree Event where
 
             convMu True = id
             convMu False = (*1.09)
+
+withWeight :: Event -> (Double, Event)
+withWeight = view eventWeight &&& id
+
+
+leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
+leptonFlavors flvs e = flvs == (view leptons e & over both (view lepFlavor))
+
+leptonCharges :: (LCharge, LCharge) -> Event -> Bool
+leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))
+
+
+lepChargeChannels :: Fills Event -> Fills Event
+lepChargeChannels =
+    channels
+        [ ("/allLepCharge", const True)
+        , ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
+        , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
+        ]
+
+lepFlavorChannels :: Fills Event -> Fills Event
+lepFlavorChannels =
+    channels 
+        [ ("/allLepFlav", const True)
+        , ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
+        , ("/mumu", leptonFlavors (Muon, Muon))
+        , ("/elel", leptonFlavors (Electron, Electron))
+        ]
+
+nJetChannels :: Fills Event -> Fills Event
+nJetChannels =
+    channels 
+        [ ("/allNjets", const True)
+        , ("/2jet", (== 2) . views jets length)
+        , ("/3jet", (== 3) . views jets length)
+        , ("/4pjet", (>= 4) . views jets length)
+        ]

@@ -27,6 +27,7 @@ import Data.TH1
 import Options.Generic
 import System.IO (hFlush, stdout)
 
+import BCalib.Event
 import BCalib.Histograms
 
 
@@ -55,6 +56,7 @@ main = do
     hs <- fmap collapse . forM fns $ \fn -> do
         putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
+        -- check whether or not this is a data file
         let (dsid :: Int) =
                 if "data15_13TeV" `isInfixOf` fn || "data16_13TeV" `isInfixOf` fn
                     then 0
@@ -62,8 +64,6 @@ main = do
                         & read . T.unpack . (!! 3)
                         . T.split (== '.') . (!! 1)
                         . reverse . T.split (== '/') . T.pack
-
-        let dsid' = if dsid < 300000 then 0 else dsid
 
         f <- tfileOpen fn
         h <- tfileGet f "MetaData_EventCount"
@@ -74,7 +74,7 @@ main = do
 
         let hs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
 
-        (fromEnum dsid',) . (ninitial,)
+        (dsid,) . (ninitial,)
             <$> F.purely L.fold hs (if nt then L.empty else withWeight <$> project t)
             <* tfileClose f
 

@@ -5,7 +5,8 @@
 module Main where
 
 import Control.Lens hiding (Fold)
-import Control.Applicative (ZipList(..), liftA2)
+import Control.Applicative (ZipList(..))
+import Control.Monad (when)
 
 import qualified Control.Foldl as F
 import qualified List.Transformer as L
@@ -18,7 +19,8 @@ import Codec.Compression.GZip (decompress)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import qualified Data.IntMap as IM
+import qualified Data.Map.Strict as M
+import qualified Data.IntMap.Strict as IM
 import Data.Maybe (fromMaybe)
 
 import Data.YODA.Obj
@@ -63,45 +65,73 @@ main = do
     let fole = F.FoldM (\x s -> IM.unionWith mergeRuns x <$> decodeFile s) (return IM.empty) return
     im <- F.impurely L.foldM fole (L.select (infiles args) :: L.ListT IO String)
 
-    let im' = flip IM.mapMaybeWithKey im $
+    let im' = flip IM.mapWithKey im $
                 \ds (n, hs) ->
                     if ds == 0
-                        then Just $ hs
-                                & traverse.annots.at "LineStyle" ?~ "none"
+                        then hs & traverse.annots.at "LineStyle" ?~ "none"
                                 & traverse.annots.at "LineColor" ?~ "Black"
                                 & traverse.annots.at "DotSize" ?~ "0.1"
                                 & traverse.annots.at "ErrorBars" ?~ "1"
                                 & traverse.annots.at "PolyMarker" ?~ "*"
-                        else if processTitle ds == "other"
-                                then Nothing
-                                else Just $
-                                        over (traverse.noted._H1DD) (scaling $ lumi args * (xsecs IM.! ds) / n) hs
+                                & traverse.annots.at "Title" ?~ "data"
 
+                        else hs & traverse.noted._H1DD %~ scaling (lumi args * (xsecs IM.! ds) / n)
+                                & traverse.annots.at "Title" ?~ processTitle ds
+
+    -- lump together non-ttbar processes
     let im'' = let f k = if k /= 0 && (k < 410000 || k > 410004)
                             then dsidOTHER
                             else k
-               in IM.mapKeysWith (liftA2 mergeYO) f im'
+               in IM.mapKeysWith (M.unionWith mergeYO) f im'
 
     let im''' = case dsidOTHER `IM.lookup` im'' of
                     Nothing -> im''
                     Just hs -> im''
-                                & ix 410000 %~ liftA2 mergeYO hs
-                                & ix 410001 %~ liftA2 mergeYO hs
-                                & ix 410002 %~ liftA2 mergeYO hs
-                                & ix 410003 %~ liftA2 mergeYO hs
-                                & ix 410004 %~ liftA2 mergeYO hs
+                                & ix 410000 %~ M.unionWith (flip mergeYO) hs
+                                & ix 410001 %~ M.unionWith (flip mergeYO) hs
+                                & ix 410002 %~ M.unionWith (flip mergeYO) hs
+                                & ix 410003 %~ M.unionWith (flip mergeYO) hs
+                                & ix 410004 %~ M.unionWith (flip mergeYO) hs
 
     iforM_ im''' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
                     (T.unlines $ hs ^.. traverse.to printYObj)
 
+
+    {-
+    -- TODO
+    -- this could be optimized a lot.
+    let immc = im''' `sans` 0 `sans` dsidOTHER
+    let mdata = im''' IM.! 0
+    let imhf = flip (over traverse) immc . M.filterWithKey $
+                    \k _ -> "/bottom/" `T.isInfixOf` k
+
+    -- TODO
+    -- this won't work
+    -- need to merge charm and light first.
+    let imlf = flip (over traverse) immc . M.filterWithKey $
+                    \k _ -> "/light/" `T.isInfixOf` k || "/charm/" `T.isInfixOf` k
+
+    let imlf' = flip (over traverse) imlf $
+                    M.mapKeys (T.replace "light/" "" . T.replace "charm/" "")
+
+    let imhf' = flip (over traverse) imhf $
+                    M.mapKeys (T.replace "bottom/" "")
+
+    return ()
+    -}
+
     where
         dsidOTHER = 999999
 
-mergeRuns :: (Double, ZipList YodaObj) -> (Double, ZipList YodaObj) -> (Double, ZipList YodaObj)
-mergeRuns (sumwgt, hs) (sumwgt', hs') = (sumwgt+sumwgt', liftA2 mergeYO hs hs')
 
-decodeFile :: String -> IO (IM.IntMap (Double, ZipList YodaObj))
+type YodaFolder = M.Map T.Text YodaObj
+
+-- this needs to be strict or else...!!!
+mergeRuns :: (Double, YodaFolder) -> (Double, YodaFolder) -> (Double, YodaFolder)
+mergeRuns (sumwgt, hs) (sumwgt', hs') = ((,) $! sumwgt+sumwgt') $! M.unionWith mergeYO hs hs'
+
+decodeFile :: String -> IO (IM.IntMap (Double, YodaFolder))
 decodeFile f = do
     putStrLn ("decoding file " ++ f) >> hFlush stdout
     eim <- decodeLazy . decompress <$> BS.readFile f ::
@@ -109,4 +139,13 @@ decodeFile f = do
 
     case eim of
          Left _ -> error $ "failed to decode file " ++ f
-         Right im -> return im
+
+         -- throw out samples we don't need immediately.
+         Right im -> return . flip IM.mapMaybeWithKey im $
+                        \ds hs -> if processTitle ds == "other"
+                                    then Nothing
+                                    else Just $ over _2 toMap hs
+
+    where
+        toMap :: ZipList YodaObj -> YodaFolder
+        toMap hs = M.fromList . getZipList $ fmap (\h -> let n = view path h in (n, h)) hs

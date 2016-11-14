@@ -20,6 +20,11 @@ library
                      , BCalib.Event
                      , BCalib.Jet
                      , BCalib.Lepton
+                     , BCalib.IP2D
+                     , BCalib.IP3D
+                     , BCalib.JF
+                     , BCalib.MV2
+                     , BCalib.SV1
   other-modules:
   other-extensions:
   build-depends:       base == 4.9.*
