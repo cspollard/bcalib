@@ -18,6 +18,8 @@ import Control.Arrow ((&&&))
 import Control.Applicative (getZipList)
 import qualified Control.Foldl as F
 
+import Data.Map.Strict as M
+
 import GHC.Generics (Generic)
 import GHC.Float (float2Double)
 
@@ -63,35 +65,37 @@ eventWeight :: Lens' Event Double
 eventWeight = lens _eventWeight $ \e x -> e { _eventWeight = x }
 
 
-jetsHs :: Fills Event
-jetsHs = allHs <> jet0Hs <> jet1Hs <$$= jets
+jetsHs :: Fill Event
+jetsHs = (M.unions <$> sequenceA [ allHs, jet0Hs, jet1Hs ]) <$$= jets
 
     where
-        allHs = (F.handles traverse jetHs <$= sequenceA)
-                    <> sequenceA (ZipList [nH 10])
-                <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
+        allHs :: F.Fold (Double, [Jet]) YodaFolder
+        allHs = (M.union <$> nH 10 <*> (F.handles traverse jetHs <$= sequenceA))
+                <&> (M.mapKeysMonotonic ("/jets" <>) . over (traverse.xlabel) ("jet " <>))
 
+        jet0Hs :: F.Fold (Double, [Jet]) YodaFolder
         jet0Hs = F.handles (ix 0) jetHs <$= sequenceA
-                <&> fmap (over path ("/jet0" <>) . over xlabel ("leading jet " <>))
+                <&> (M.mapKeysMonotonic ("/jet0" <>) . over (traverse.xlabel) ("leading jet " <>))
 
+        jet1Hs :: F.Fold (Double, [Jet]) YodaFolder
         jet1Hs = F.handles (ix 1) jetHs <$= sequenceA
-                <&> fmap (over path ("/jet1" <>) . over xlabel ("subleading jet " <>))
+                <&> (M.mapKeysMonotonic ("/jet1" <>) . over (traverse.xlabel) ("subleading jet " <>))
 
 
-lepsHs :: Fills Event
+lepsHs :: Fill Event
 lepsHs =
     -- TODO
     -- must be better way to write this...
     F.handles traverse lepHs <$= (\(w, e) -> let (l1, l2) = view leptons e in [(w, l1), (w, l2)])
-    <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
+    <&> (M.mapKeysMonotonic ("/leps" <>) . over (traverse.xlabel) ("lep " <>))
 
 muH :: Fill Event
-muH = fillH1L mu $
-    yodaHist 50 0 50 "/mu" "$ <\\mu> $" (dsigdXpbY "<\\mu>" "1")
+muH = fillH1L mu "/mu" $
+    yodaHist 50 0 50 "$ <\\mu> $" (dsigdXpbY "<\\mu>" "1")
 
 
-eventHs :: Fills Event
-eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
+eventHs :: Fill Event
+eventHs = M.unions <$> sequenceA [ lepsHs, jetsHs, muH ]
 
 
 readMET :: MonadIO m => String -> String -> TR m PtEtaPhiE
@@ -142,7 +146,7 @@ leptonCharges :: (LCharge, LCharge) -> Event -> Bool
 leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))
 
 
-lepChargeChannels :: Fills Event -> Fills Event
+lepChargeChannels :: Fill Event -> Fill Event
 lepChargeChannels =
     channels
         [ ("/allLepCharge", const True)
@@ -150,7 +154,7 @@ lepChargeChannels =
         , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
         ]
 
-lepFlavorChannels :: Fills Event -> Fills Event
+lepFlavorChannels :: Fill Event -> Fill Event
 lepFlavorChannels =
     channels 
         [ ("/allLepFlav", const True)
@@ -159,7 +163,7 @@ lepFlavorChannels =
         , ("/elel", leptonFlavors (Electron, Electron))
         ]
 
-nJetChannels :: Fills Event -> Fills Event
+nJetChannels :: Fill Event -> Fill Event
 nJetChannels =
     channels 
         [ ("/allNjets", const True)

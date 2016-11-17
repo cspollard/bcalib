@@ -41,7 +41,7 @@ lepFlavor = lens _flavor $ \l x -> l { _flavor = x }
 lepCharge :: Lens' Lepton LCharge
 lepCharge = lens _charge $ \l x -> l { _charge = x }
 
-lepHs :: Fills Lepton
+lepHs :: Fill Lepton
 lepHs = lvHs
 
 readLeptons :: MonadIO m => TR m (Lepton, Lepton)

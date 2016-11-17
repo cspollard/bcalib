@@ -7,6 +7,8 @@ module BCalib.IP2D where
 import GHC.Float
 import GHC.Generics hiding (to)
 
+import Data.Map.Strict as M
+
 import BCalib.Histograms
 
 
@@ -20,17 +22,17 @@ data IP2DInfo =
         } deriving (Generic, Show)
 
 
-ip2dHs :: Fills IP2DInfo
-ip2dHs = sequenceA . ZipList $
-    [ fillH1L (ip2dNTrk.integralL) $ yodaHist 10 0 10 "/ip2dntrk" "IP2D trakc multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L ip2dLLR $ yodaHist 50 (-20) 30 "/ip2dllr" "IP2D LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L ip2dPu $ yodaHist 50 0 1 "/ip2dpu" "IP2D P(light)" (dsigdXpbY "P" "1")
-    , fillH1L ip2dPc $ yodaHist 50 0 1 "/ip2dpc" "IP2D P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L ip2dPb $ yodaHist 50 0 1 "/ip2dpb" "IP2D P(bottom)" (dsigdXpbY "P" "1")
+ip2dHs :: Fill IP2DInfo
+ip2dHs = M.unions <$> sequenceA
+    [ fillH1L (ip2dNTrk.integralL) "/ip2dntrk" $ yodaHist 10 0 10 "IP2D trakc multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L ip2dLLR "/ip2dllr" $ yodaHist 50 (-20) 30 "IP2D LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L ip2dPu "/ip2dpu" $ yodaHist 50 0 1 "IP2D P(light)" (dsigdXpbY "P" "1")
+    , fillH1L ip2dPc "/ip2dpc" $ yodaHist 50 0 1 "IP2D P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L ip2dPb "/ip2dpb" $ yodaHist 50 0 1 "IP2D P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where
-        integralL :: Num a => Getter Int a
+        integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
         integralL = to fromIntegral
 
 

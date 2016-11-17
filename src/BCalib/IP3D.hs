@@ -7,6 +7,7 @@ module BCalib.IP3D where
 import GHC.Float
 import GHC.Generics hiding (to)
 
+import Data.Map.Strict as M
 import BCalib.Histograms
 
 
@@ -20,13 +21,13 @@ data IP3DInfo =
         } deriving (Generic, Show)
 
 
-ip3dHs :: Fills IP3DInfo
-ip3dHs = sequenceA . ZipList $
-    [ fillH1L (ip3dNTrk.integralL) $ yodaHist 10 0 10 "/ip3dntrk" "IP3D trakc multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L ip3dLLR $ yodaHist 50 (-20) 30 "/ip3dllr" "IP3D LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L ip3dPu $ yodaHist 50 0 1 "/ip3dpu" "IP3D P(light)" (dsigdXpbY "P" "1")
-    , fillH1L ip3dPc $ yodaHist 50 0 1 "/ip3dpc" "IP3D P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L ip3dPb $ yodaHist 50 0 1 "/ip3dpb" "IP3D P(bottom)" (dsigdXpbY "P" "1")
+ip3dHs :: Fill IP3DInfo
+ip3dHs = M.unions <$> sequenceA
+    [ fillH1L (ip3dNTrk.integralL) "/ip3dntrk" $ yodaHist 10 0 10 "IP3D track multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L ip3dLLR "/ip3dllr" $ yodaHist 50 (-20) 30 "IP3D LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L ip3dPu "/ip3dpu" $ yodaHist 50 0 1 "IP3D P(light)" (dsigdXpbY "P" "1")
+    , fillH1L ip3dPc "/ip3dpc" $ yodaHist 50 0 1 "IP3D P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L ip3dPb "/ip3dpb" $ yodaHist 50 0 1 "IP3D P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where

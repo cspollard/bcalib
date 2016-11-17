@@ -7,6 +7,8 @@ module BCalib.SV1 where
 import GHC.Float
 import GHC.Generics hiding (to)
 
+import Data.Map.Strict as M
+
 import BCalib.Histograms
 
 
@@ -26,16 +28,16 @@ data SV1Info =
 -- TODO
 -- profiles
 
-sv1Hs :: Fills SV1Info
-sv1Hs = sequenceA . ZipList $
-    [ fillH1L sv1MSV $ yodaHist 50 0 10000 "/sv1msv" "SV1 SV mass [MeV]" (dsigdXpbY "m" "MeV")
-    , fillH1L (sv1NGTJet.integralL) $ yodaHist 10 0 10 "/sv1ngtj" "SV1 Jet NGT" (dsigdXpbY "n" "1")
-    , fillH1L (sv1NGTSV.integralL) $ yodaHist 10 0 10 "/sv1ngtsv" "SV1 SV NGT" (dsigdXpbY "n" "1")
-    , fillH1L sv1Efrac $ yodaHist 50 0 1 "/sv1efrac" "SV1 energy fraction" (dsigdXpbY "fraction" "1")
-    , fillH1L sv1LLR $ yodaHist 50 (-20) 30 "/sv1llr" "SV1 LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L sv1Pu $ yodaHist 50 0 1 "/sv1pu" "SV1 P(light)" (dsigdXpbY "P" "1")
-    , fillH1L sv1Pc $ yodaHist 50 0 1 "/sv1pc" "SV1 P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L sv1Pb $ yodaHist 50 0 1 "/sv1pb" "SV1 P(bottom)" (dsigdXpbY "P" "1")
+sv1Hs :: Fill SV1Info
+sv1Hs = M.unions <$> sequenceA
+    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 10000 "SV1 SV mass [MeV]" (dsigdXpbY "m" "MeV")
+    , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
+    , fillH1L (sv1NGTSV.integralL) "/sv1ngtsv" $ yodaHist 10 0 10 "SV1 SV NGT" (dsigdXpbY "n" "1")
+    , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "fraction" "1")
+    , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-20) 30 "SV1 LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L sv1Pu "/sv1pu" $ yodaHist 50 0 1 "SV1 P(light)" (dsigdXpbY "P" "1")
+    , fillH1L sv1Pc "/sv1pc" $ yodaHist 50 0 1 "SV1 P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L sv1Pb "/sv1pb" $ yodaHist 50 0 1 "SV1 P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where

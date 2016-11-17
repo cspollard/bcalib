@@ -7,6 +7,8 @@ module BCalib.JF where
 import GHC.Float
 import GHC.Generics hiding (to)
 
+import Data.Map.Strict as M
+
 import BCalib.Histograms
 
 
@@ -24,18 +26,18 @@ data JFInfo =
         , _jfPb :: Double
         } deriving (Generic, Show)
 
-jfHs :: Fills JFInfo
-jfHs = sequenceA . ZipList $
-    [ fillH1L (jfNVtx.integralL) $ yodaHist 5 0 5 "/jfnvtx" "JF vertex multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfMass $ yodaHist 50 0 10000 "/jfmass" "JF mass [MeV]" (dsigdXpbY "m" "MeV")
-    , fillH1L (jfNSingleTrks.integralL) $ yodaHist 10 0 10 "/jfnsingtrks" "JF single track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L (jfNTrksAtVtx.integralL) $ yodaHist 10 0 10 "/jfntrksatvtx" "JF vertex track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfEfrac $ yodaHist 50 0 1 "/jfefrac" "JF energy fraction" (dsigdXpbY "fraction" "1")
-    , fillH1L (jfN2TPair.integralL) $ yodaHist 20 0 20 "/jfn2tpair" "JF n2tpair" (dsigdXpbY "n" "1")
-    , fillH1L jfLLR $ yodaHist 50 (-20) 30 "/jfllr" "JF LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L jfPu $ yodaHist 50 0 1 "/jfpu" "JF P(light)" (dsigdXpbY "P" "1")
-    , fillH1L jfPc $ yodaHist 50 0 1 "/jfpc" "JF P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L jfPb $ yodaHist 50 0 1 "/jfpb" "JF P(bottom)" (dsigdXpbY "P" "1")
+jfHs :: Fill JFInfo
+jfHs = M.unions <$> sequenceA
+    [ fillH1L (jfNVtx.integralL) "/jfnvtx" $ yodaHist 5 0 5 "JF vertex multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10000 "JF mass [MeV]" (dsigdXpbY "m" "MeV")
+    , fillH1L (jfNSingleTrks.integralL) "/jfnsingtrks" $ yodaHist 10 0 10 "JF single track multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L (jfNTrksAtVtx.integralL) "/jfntrksatvtx" $ yodaHist 10 0 10 "JF vertex track multiplicity" (dsigdXpbY "n" "1")
+    , fillH1L jfEfrac "/jfefrac" $ yodaHist 50 0 1 "JF energy fraction" (dsigdXpbY "fraction" "1")
+    , fillH1L (jfN2TPair.integralL) "/jfn2tpair" $ yodaHist 20 0 20 "JF n2tpair" (dsigdXpbY "n" "1")
+    , fillH1L jfLLR "/jfllr" $ yodaHist 50 (-20) 30 "JF LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L jfPu "/jfpu" $ yodaHist 50 0 1 "JF P(light)" (dsigdXpbY "P" "1")
+    , fillH1L jfPc "/jfpc" $ yodaHist 50 0 1 "JF P(charm)" (dsigdXpbY "P" "1")
+    , fillH1L jfPb "/jfpb" $ yodaHist 50 0 1 "JF P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where

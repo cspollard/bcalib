@@ -4,8 +4,6 @@
 
 module Main where
 
-import Data.Function (on)
-
 import qualified Control.Foldl as F
 import qualified List.Transformer as L
 
@@ -14,7 +12,6 @@ import Text.Regex.Base.RegexLike
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (decodeLazy)
-import Data.Serialize.ZipList ()
 import Codec.Compression.GZip (decompress)
 
 import qualified Data.Text as T
@@ -90,20 +87,20 @@ main = do
     let im'' = let f k = if k /= 0 && (k < 410000 || k > 410004)
                             then dsidOTHER
                             else k
-               in IM.mapKeysWith (M.unionWith mergeYO) f im'
+               in IM.mapKeysWith mergeYF f im'
 
     let im''' = case dsidOTHER `IM.lookup` im'' of
                     Nothing -> im''
                     Just hs -> im''
-                                & ix 410000 %~ M.unionWith (flip mergeYO) hs
-                                & ix 410001 %~ M.unionWith (flip mergeYO) hs
-                                & ix 410002 %~ M.unionWith (flip mergeYO) hs
-                                & ix 410003 %~ M.unionWith (flip mergeYO) hs
-                                & ix 410004 %~ M.unionWith (flip mergeYO) hs
+                                & ix 410000 %~ flip mergeYF hs
+                                & ix 410001 %~ flip mergeYF hs
+                                & ix 410002 %~ flip mergeYF hs
+                                & ix 410003 %~ flip mergeYF hs
+                                & ix 410004 %~ flip mergeYF hs
 
     iforM_ im''' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
-                    (T.unlines $ hs ^.. traverse.to printYObj)
+                    (ifoldMap printYObj hs)
 
 
     -- TODO
@@ -113,41 +110,39 @@ main = do
     -- light flavor
     let iml = flip (over traverse) immc . M.filterWithKey $
                     \k _ -> "/light/" `T.isInfixOf` k
-    let iml' = flip (over (traverse.traverse)) iml $
-                    (path %~ T.replace "/light/" "/allJetFlavs/")
-                    . (annots.at "Title" ?~ "light")
+    let iml' = flip (over traverse) iml $
+                    M.mapKeysMonotonic (T.replace "/light/" "/allJetFlavs/")
+                    . (traverse.annots.at "Title" ?~ "light")
     iforM_ iml' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_light.yoda")
-                    (T.unlines $ hs ^.. traverse.to printYObj)
+                    (ifoldMap printYObj hs)
 
     -- charm
     -- need to add light contribution for stack plots.
     let imc = flip (over traverse) immc . M.filterWithKey $
                     \k _ -> "/charm/" `T.isInfixOf` k
-    let imc' = flip (over (traverse.traverse)) imc $
-                    (path %~ T.replace "/charm/" "/allJetFlavs/")
-                    . (annots.at "Title" ?~ "charm")
-    let imc'' = IM.intersectionWith (liftA2 mergeYO `on` (ZipList . M.elems)) imc' iml'
+    let imc' = flip (over traverse) imc $
+                    M.mapKeysMonotonic (T.replace "/charm/" "/allJetFlavs/")
+                    . (traverse.annots.at "Title" ?~ "charm")
+    let imc'' = IM.intersectionWith mergeYF imc' iml'
     iforM_ imc'' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_charm.yoda")
-                    (T.unlines $ hs ^.. traverse.to printYObj)
+                    (ifoldMap printYObj hs)
 
     -- bottom
     -- use allJetFlavs since we're stacking on top of light and charm.
     let imb = flip (over traverse) immc . M.filterWithKey $
                     \k _ -> "/allJetFlavs/" `T.isInfixOf` k
     let imb' = flip (set (traverse.traverse.annots.at "Title")) imb $
-                    Just "charm"
+                    Just "bottom"
     iforM_ imb' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
-                    (T.unlines $ hs ^.. traverse.to printYObj)
+                    (ifoldMap printYObj hs)
 
 
     where
         dsidOTHER = 999999
 
-
-type YodaFolder = M.Map T.Text YodaObj
 
 -- this needs to be strict or else...!!!
 mergeRuns :: (Double, YodaFolder) -> (Double, YodaFolder) -> (Double, YodaFolder)
@@ -157,7 +152,7 @@ decodeFile :: String -> String -> IO (IM.IntMap (Double, YodaFolder))
 decodeFile rxp f = do
     putStrLn ("decoding file " ++ f) >> hFlush stdout
     eim <- decodeLazy . decompress <$> BS.readFile f ::
-                IO (Either String (IM.IntMap (Double, ZipList YodaObj)))
+                IO (Either String (IM.IntMap (Double, YodaFolder)))
 
     case eim of
          Left _ -> error $ "failed to decode file " ++ f
@@ -166,13 +161,10 @@ decodeFile rxp f = do
          Right im -> return . flip IM.mapMaybeWithKey im $
                         \ds hs -> if processTitle ds == "other"
                                     then Nothing
-                                    else Just $! over _2' (toMap . filt) hs
+                                    else Just $! over _2' filt hs
 
     where
-        toMap :: ZipList YodaObj -> YodaFolder
-        toMap hs = M.fromList . getZipList $ fmap (\h -> let n = view path h in (n, h)) hs
-
         -- TODO
         -- lens filter...
-        filt :: ZipList YodaObj -> ZipList YodaObj
-        filt (ZipList yhs) = ZipList . filter (matchTest (makeRegex rxp :: Regex) . T.unpack . view path) $ yhs
+        filt :: YodaFolder -> YodaFolder
+        filt = M.filterWithKey $ \k _ -> matchTest (makeRegex rxp :: Regex) . T.unpack $ k

@@ -16,6 +16,8 @@ import Foreign.C.Types (CInt)
 import GHC.Generics hiding (to)
 import GHC.Float (float2Double)
 
+import Data.Map.Strict as M
+
 import BCalib.Histograms
 
 import Data.HEP.LorentzVector as X
@@ -51,14 +53,14 @@ instance HasLorentzVector Jet where
     toPtEtaPhiE = jfourmom
 
 
-jetHs :: Fills Jet
+jetHs :: Fill Jet
 jetHs =
     channels
         [ ("/allJetFlavs", const True)
         , ("/light", views truthFlavor (== Just L))
         , ("/charm", views truthFlavor (== Just C))
         , ("/bottom", views truthFlavor (== Just B))
-        ] $ mconcat
+        ] $ M.unions <$> sequenceA
         [ lvHs
         , sv1Hs <$$= sv1info
         , jfHs <$$= jfinfo
