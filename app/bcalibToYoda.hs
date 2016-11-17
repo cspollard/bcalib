@@ -9,6 +9,9 @@ import Data.Function (on)
 import qualified Control.Foldl as F
 import qualified List.Transformer as L
 
+import Text.Regex.Posix.String
+import Text.Regex.Base.RegexLike
+
 import qualified Data.ByteString.Lazy as BS
 import Data.Serialize (decodeLazy)
 import Data.Serialize.ZipList ()
@@ -35,6 +38,7 @@ data InArgs =
         { outfolder :: String
         , xsecfile :: String
         , lumi :: Double
+        , regex :: String
         , infiles :: [String]
         }
 
@@ -49,6 +53,10 @@ inArgs = InArgs
     <*> option auto
         ( long "lumi"
         <> metavar "LUMI" )
+    <*> strOption
+        ( long "regex"
+        <> metavar "REGEX=*"
+        <> value "*" )
     <*> some (strArgument (metavar "INFILES"))
 
 opts :: ParserInfo InArgs
@@ -62,7 +70,7 @@ main = do
     xsecs <- fromMaybe (error "failed to parse xsec file.")
                 <$> (fmap.fmap.fmap) fst (readXSecFile (xsecfile args))
 
-    let fole = F.FoldM (\x s -> IM.unionWith mergeRuns x <$> decodeFile s) (return IM.empty) return
+    let fole = F.FoldM (\x s -> IM.unionWith mergeRuns x <$> decodeFile (regex args) s) (return IM.empty) return
     im <- F.impurely L.foldM fole (L.select (infiles args) :: L.ListT IO String)
 
     let im' = flip IM.mapWithKey im $
@@ -145,8 +153,8 @@ type YodaFolder = M.Map T.Text YodaObj
 mergeRuns :: (Double, YodaFolder) -> (Double, YodaFolder) -> (Double, YodaFolder)
 mergeRuns (sumwgt, hs) (sumwgt', hs') = ((,) $! sumwgt+sumwgt') $! M.unionWith mergeYO hs hs'
 
-decodeFile :: String -> IO (IM.IntMap (Double, YodaFolder))
-decodeFile f = do
+decodeFile :: String -> String -> IO (IM.IntMap (Double, YodaFolder))
+decodeFile rxp f = do
     putStrLn ("decoding file " ++ f) >> hFlush stdout
     eim <- decodeLazy . decompress <$> BS.readFile f ::
                 IO (Either String (IM.IntMap (Double, ZipList YodaObj)))
@@ -158,8 +166,13 @@ decodeFile f = do
          Right im -> return . flip IM.mapMaybeWithKey im $
                         \ds hs -> if processTitle ds == "other"
                                     then Nothing
-                                    else Just $ over _2 toMap hs
+                                    else Just $! over _2' (toMap . filt) hs
 
     where
         toMap :: ZipList YodaObj -> YodaFolder
         toMap hs = M.fromList . getZipList $ fmap (\h -> let n = view path h in (n, h)) hs
+
+        -- TODO
+        -- lens filter...
+        filt :: ZipList YodaObj -> ZipList YodaObj
+        filt (ZipList yhs) = ZipList . filter (matchTest (makeRegex rxp :: Regex) . T.unpack . view path) $ yhs

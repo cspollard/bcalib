@@ -47,6 +47,7 @@ executable bcalibRun
   build-depends:       base == 4.9.*
                      , lens == 4.14.*
                      , foldl == 1.2.*
+                     , comonad == 5
                      , bytestring == 0.10.*
                      , text == 1.2.*
                      , list-transformer == 1.0.*
@@ -74,6 +75,8 @@ executable bcalibToYoda
                      , cereal == 0.5.*
                      , zlib == 0.6.*
                      , optparse-applicative == 0.12.*
+                     , regex-base == 0.93.*
+                     , regex-posix == 0.95.*
                      , histogram-extras == 0.2.*
                      , atlas == 0.1.*
                      , bcalib == 0.1.*

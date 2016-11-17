@@ -7,8 +7,11 @@ module Main where
 
 import Control.Lens
 import Control.Monad (forM)
+import Control.Comonad (duplicate)
 import Data.Semigroup ((<>))
 import Data.List (isInfixOf)
+
+import Data.Maybe (fromMaybe)
 
 import qualified List.Transformer as L
 import qualified Control.Foldl as F
@@ -42,43 +45,53 @@ main = do
     args <- getRecord "run-hs" :: IO Args
 
     fns <- filter (not . null) . lines <$> readFile (infiles args)
+    let fnl = L.select fns :: L.ListT IO String
 
-    -- TODO
-    -- this folding doesn't need to store histograms from each file
-    -- in memory...
-    -- TODO
-    -- TODO
-    -- turn this into a fold
-    -- that looks to see if we've already filled hists for this dsid
-    -- if so: continue filling the histograms
-    -- if not: use new fold.
-    let collapse = IM.fromListWith (\(n, ms) (n', ms') -> (n+n', mergeYO <$> ms <*> ms'))
-    hs <- fmap collapse . forM fns $ \fn -> do
-        putStrLn ("analyzing file " ++ fn) >> hFlush stdout
+    let f = F.FoldM fillFile (return IM.empty) return
 
-        -- check whether or not this is a data file
-        let (dsid :: Int) =
-                if "data15_13TeV" `isInfixOf` fn || "data16_13TeV" `isInfixOf` fn
-                    then 0
-                    else fn
-                        & read . T.unpack . (!! 3)
-                        . T.split (== '.') . (!! 1)
-                        . reverse . T.split (== '/') . T.pack
+    (imf :: IM.IntMap (Double, Fills Event)) <- F.impurely L.foldM f fnl
+    let imh = over (traverse._2') (\(F.Fold _ x g) -> (g x)) imf
 
-        f <- tfileOpen fn
-        h <- tfileGet f "MetaData_EventCount"
-        ninitial <- entryd h 4
+    putStrLn ("writing to file " ++ outfile args) >> hFlush stdout
 
-        t <- ttree f "FlavourTagging_Nominal"
-        nt <- isNullTree t
+    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ imh)
 
-        let hs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
 
-        (dsid,) . (ninitial,)
-            <$> F.purely L.fold hs (if nt then L.empty else withWeight <$> project t)
-            <* tfileClose f
+fillFile :: IM.IntMap (Double, Fills Event) -> String -> IO (IM.IntMap (Double, Fills Event))
+fillFile hs fn = do
+    putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
-    putStrLn $ "writing to file " ++ outfile args
-    hFlush stdout
+    -- check whether or not this is a data file
+    let (dsid :: Int) =
+            if "data15_13TeV" `isInfixOf` fn || "data16_13TeV" `isInfixOf` fn
+                then 0
+                else fn
+                    & read . T.unpack . (!! 3)
+                    . T.split (== '.') . (!! 1)
+                    . reverse . T.split (== '/') . T.pack
 
-    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2.traverse.path) ("/bcalib" <>) $ hs)
+    f <- tfileOpen fn
+    h <- tfileGet f "MetaData_EventCount"
+    ninitial <- entryd h 4
+
+    t <- ttree f "FlavourTagging_Nominal"
+    nt <- isNullTree t
+
+    let l = if nt then (L.empty :: L.ListT IO (Double, Event)) else withWeight <$> project t
+
+    let (n, h) = fromMaybe (0, defHs) (hs ^. at dsid)
+
+    h' <- (ninitial+n,)
+        <$> contF h l
+        <* tfileClose f
+
+    return $ hs & at dsid ?~ seqT h'
+
+    where
+        contF h' =
+            F.purely L.fold (duplicate h')
+
+        seqT (a, b) = a `seq` b `seq` (a, b)
+
+defHs :: Fills Event
+defHs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
