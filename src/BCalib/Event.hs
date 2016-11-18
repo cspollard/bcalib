@@ -95,7 +95,7 @@ muH = fillH1L mu "/mu" $
 
 
 eventHs :: Fill Event
-eventHs = M.unions <$> sequenceA [ lepsHs, jetsHs, muH ]
+eventHs = mconcat [ lepsHs, jetsHs, muH ]
 
 
 readMET :: MonadIO m => String -> String -> TR m PtEtaPhiE

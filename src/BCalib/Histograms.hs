@@ -46,7 +46,7 @@ channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector f) fills
 
 
 channels :: [(T.Text, a -> Bool)] -> Fill a -> Fill a
-channels fns fills = fmap mconcat . sequenceA $ uncurry channel <$> fns <*> pure fills
+channels fns fills = mconcat $ uncurry channel <$> fns <*> pure fills
 
 
 nH :: Foldable f => Int -> Fill (f a)
@@ -68,4 +68,4 @@ fs <$$= l = F.premap (fmap (view l)) fs
 
 -- generic histograms for a lorentz vector
 lvHs :: HasLorentzVector a => Fill a
-lvHs = M.union <$> ptH <*> etaH
+lvHs = mappend <$> ptH <*> etaH

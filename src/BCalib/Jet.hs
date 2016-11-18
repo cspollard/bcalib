@@ -60,7 +60,8 @@ jetHs =
         , ("/light", views truthFlavor (== Just L))
         , ("/charm", views truthFlavor (== Just C))
         , ("/bottom", views truthFlavor (== Just B))
-        ] $ M.unions <$> sequenceA
+        ] $
+    mconcat
         [ lvHs
         , sv1Hs <$$= sv1info
         , jfHs <$$= jfinfo

@@ -8,13 +8,14 @@ module Main where
 import Debug.Trace
 
 import Control.Lens
-import Control.Comonad (duplicate)
+import Control.Comonad (Comonad(..))
 import Data.Semigroup ((<>))
 import Data.List (isInfixOf)
 
 import qualified List.Transformer as L
 import qualified Control.Foldl as F
 
+import Data.Maybe (fromMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.IntMap as IM
 import qualified Data.Text as T
@@ -49,7 +50,7 @@ main = do
     let f = F.FoldM fillFile (return IM.empty) return
 
     (imf :: IM.IntMap (Double, Fill Event)) <- F.impurely L.foldM f fnl
-    let imh = over (traverse._2') (\(F.Fold _ x g) -> (g x)) imf
+    let imh = over (traverse._2') extract imf
 
     putStrLn ("writing to file " ++ outfile args) >> hFlush stdout
 
@@ -74,25 +75,24 @@ fillFile hs fn = do
     ninitial <- entryd h 4
 
     t <- ttree f "FlavourTagging_Nominal"
-    nt <- isNullTree t
 
+    -- deal with possible missing trees
+    nt <- isNullTree t
     let l = if nt then (L.empty :: L.ListT IO (Double, Event)) else withWeight <$> project t
 
-    let (n, yf) = case hs ^. at dsid of
-                    Just x -> traceShow (fmap getF x) x
-                    Nothing -> (0, defHs)
+    hs' <- forMOf (at dsid) hs $
+                \x -> case x of
+                        Just (n, yf) -> Just . seqT . (ninitial+n,) <$> F.purely L.fold (duplicate yf) l
+                        Nothing -> Just . seqT . (ninitial,) <$> F.purely L.fold (duplicate defHs) l
 
-    h' <- (ninitial+n,) <$> contF yf l
     tfileClose f
 
-    return $ hs & at dsid ?~ seqT h'
+    return $! hs'
+
 
     where
-        contF hh = F.purely L.fold (duplicate hh)
-
         seqT (a, b) = a `seq` b `seq` (a, b)
 
-        getF (F.Fold _ x f) = f x
 
 defHs :: Fill Event
 defHs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
