@@ -149,18 +149,18 @@ leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))
 lepChargeChannels :: Fill Event -> Fill Event
 lepChargeChannels =
     channels
-        [ ("/allLepCharge", const True)
-        , ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
-        , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
+        [ ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
+        -- , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
+        -- , ("/allLepCharge", const True)
         ]
 
 lepFlavorChannels :: Fill Event -> Fill Event
 lepFlavorChannels =
     channels 
-        [ ("/allLepFlav", const True)
-        , ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
-        , ("/mumu", leptonFlavors (Muon, Muon))
-        , ("/elel", leptonFlavors (Electron, Electron))
+        [ ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
+        -- , ("/mumu", leptonFlavors (Muon, Muon))
+        -- , ("/elel", leptonFlavors (Electron, Electron))
+        -- , ("/allLepFlav", const True)
         ]
 
 nJetChannels :: Fill Event -> Fill Event
