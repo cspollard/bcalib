@@ -62,8 +62,9 @@ jetHs =
         , ("/bottom", views truthFlavor (== Just B))
         ] $
     channels
-        ( ("/allJetPts", const True)
-        : bins "/pt" (view lvPt) [20000, 30000, 40000, 50000, 75000, 100000, 150000, 200000, 300000, 400000, 500000]
+        ( ("/inclusive", const True)
+        : ("/pt_gt500", (> 500000) . view lvPt)
+        : bins "/pt" (view lvPt) [20, 30, 50, 75, 100, 150, 250, 500]
         ++ bins "/eta" (view lvEta) [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]
         )
         $
@@ -91,7 +92,7 @@ jetHs =
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)
 lvsFromTTree ptn etan phin = do
-    pts <- fmap float2Double <$> readBranch ptn
+    pts <- fmap (float2Double . (/ 1e3)) <$> readBranch ptn
     etas <- fmap float2Double <$> readBranch etan
     phis <- fmap float2Double <$> readBranch phin
 

@@ -46,7 +46,7 @@ lepHs = lvHs
 
 readLeptons :: MonadIO m => TR m (Lepton, Lepton)
 readLeptons = do
-    pt1 <- float2Double <$> readBranch "ptLep"
+    pt1 <- float2Double . (/ 1e3) <$> readBranch "ptLep"
     eta1 <- float2Double <$> readBranch "etaLep"
     phi1 <- float2Double <$> readBranch "phiLep"
     let p1 = PtEtaPhiE pt1 eta1 phi1 $ pt1 * cosh eta1

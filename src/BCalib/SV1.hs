@@ -30,8 +30,8 @@ data SV1Info =
 
 sv1Hs :: Fill SV1Info
 sv1Hs = M.unions <$> sequenceA
-    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 10000 "SV1 SV mass [MeV]" (dsigdXpbY "m" "MeV")
-    , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
+    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 10000 "SV1 SV mass [GeV]" (dsigdXpbY "m" "GeV")
+    -- , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
     , fillH1L (sv1NGTSV.integralL) "/sv1ngtsv" $ yodaHist 10 0 10 "SV1 SV NGT" (dsigdXpbY "n" "1")
     , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "fraction" "1")
     , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-20) 30 "SV1 LLR" (dsigdXpbY "LLR" "1")
@@ -47,7 +47,7 @@ sv1Hs = M.unions <$> sequenceA
 
 readSV1s :: MonadIO m => TR m (ZipList SV1Info)
 readSV1s = do
-    msv <- readD "jetsSV1_masssvx"
+    msv <- fmap (/ 1e3) <$> readD "jetsSV1_masssvx"
     ngtjet <- readI "jetsSV1_NGTinJet"
     ngtsv <- readI "jetsSV1_NGTinSvx"
     efrac <- readD "jetsSV1_efracsvx"

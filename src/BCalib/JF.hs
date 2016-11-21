@@ -29,7 +29,7 @@ data JFInfo =
 jfHs :: Fill JFInfo
 jfHs = M.unions <$> sequenceA
     [ fillH1L (jfNVtx.integralL) "/jfnvtx" $ yodaHist 5 0 5 "JF vertex multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10000 "JF mass [MeV]" (dsigdXpbY "m" "MeV")
+    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10000 "JF mass [GeV]" (dsigdXpbY "m" "GeV")
     , fillH1L (jfNSingleTrks.integralL) "/jfnsingtrks" $ yodaHist 10 0 10 "JF single track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L (jfNTrksAtVtx.integralL) "/jfntrksatvtx" $ yodaHist 10 0 10 "JF vertex track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L jfEfrac "/jfefrac" $ yodaHist 50 0 1 "JF energy fraction" (dsigdXpbY "fraction" "1")
@@ -48,7 +48,7 @@ jfHs = M.unions <$> sequenceA
 readJFs :: MonadIO m => TR m (ZipList JFInfo)
 readJFs = do
     nvtx <- readI "jetsJetFitter_nVTX"
-    mass <- readD "jetsJetFitter_mass"
+    mass <- fmap (/ 1e3) <$> readD "jetsJetFitter_mass"
     nsts <- readI "jetsJetFitter_nSingleTracks"
     ntsav <- readI "jetsJetFitter_nTracksAtVtx"
     efrac <- readD "jetsJetFitter_energyFraction"
