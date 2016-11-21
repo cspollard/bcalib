@@ -16,7 +16,7 @@ import Foreign.C.Types (CInt)
 import GHC.Generics hiding (to)
 import GHC.Float (float2Double)
 
-import Data.Map.Strict as M
+import Data.Text as T
 
 import BCalib.Histograms
 
@@ -61,6 +61,12 @@ jetHs =
         , ("/charm", views truthFlavor (== Just C))
         , ("/bottom", views truthFlavor (== Just B))
         ] $
+    channels
+        ( ("/allJetPts", const True)
+        : bins "/pt" (view lvPt) [20000, 30000, 40000, 50000, 75000, 100000, 150000, 200000, 300000, 400000, 500000]
+        ++ bins "/eta" (view lvEta) [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]
+        )
+        $
     mconcat
         [ lvHs
         , sv1Hs <$$= sv1info
@@ -69,6 +75,18 @@ jetHs =
         , ip3dHs <$$= ip3dinfo
         , mv2Hs <$$= mv2info
         ]
+
+    where
+        bins :: T.Text -> (Jet -> Double) -> [Double] -> [(T.Text, Jet -> Bool)]
+
+        bins lab f (b0:b1:bs) =
+            ( fixT $ lab <> "_" <> T.pack (show b0) <> "_" <> T.pack (show b1)
+            , \j -> let x = f j in b0 < x && x < b1
+            ) : bins lab f (b1:bs)
+
+        bins _ _ _ = []
+
+        fixT = T.replace "-" "m"
 
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)

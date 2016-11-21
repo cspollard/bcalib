@@ -55,7 +55,7 @@ nH mx = fillH1L (to $ fromIntegral.length) "/n" $
 
 ptH :: HasLorentzVector a => Fill a
 ptH = fillH1L lvPt "/pt" $
-    yodaHist 25 0 250000 "$p_{\\mathrm T}$ [MeV]" (dsigdXpbY pt mev)
+    yodaHist 50 0 500000 "$p_{\\mathrm T}$ [MeV]" (dsigdXpbY pt mev)
 
 etaH :: HasLorentzVector a => Fill a
 etaH = fillH1L lvEta "/eta" $

@@ -79,8 +79,9 @@ main = do
                                 & traverse.annots.at "ErrorBars" ?~ "1"
                                 & traverse.annots.at "PolyMarker" ?~ "*"
                                 & traverse.annots.at "Title" ?~ "data"
+                                & traverse.noted._H1DD %~ scaling (1.0 / lumi args)
 
-                        else hs & traverse.noted._H1DD %~ scaling (lumi args * (xsecs IM.! ds) / n)
+                        else hs & traverse.noted._H1DD %~ scaling ((xsecs IM.! ds) / n)
                                 & traverse.annots.at "Title" ?~ ("\"" <> processTitle ds <> "\"")
 
     -- lump together non-ttbar processes

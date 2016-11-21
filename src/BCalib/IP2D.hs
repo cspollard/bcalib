@@ -26,9 +26,9 @@ ip2dHs :: Fill IP2DInfo
 ip2dHs = M.unions <$> sequenceA
     [ fillH1L (ip2dNTrk.integralL) "/ip2dntrk" $ yodaHist 10 0 10 "IP2D track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L ip2dLLR "/ip2dllr" $ yodaHist 50 (-20) 30 "IP2D LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L ip2dPu "/ip2dpu" $ yodaHist 50 0 1 "IP2D P(light)" (dsigdXpbY "P" "1")
-    , fillH1L ip2dPc "/ip2dpc" $ yodaHist 50 0 1 "IP2D P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L ip2dPb "/ip2dpb" $ yodaHist 50 0 1 "IP2D P(bottom)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip2dPu "/ip2dpu" $ yodaHist 50 0 1 "IP2D P(light)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip2dPc "/ip2dpc" $ yodaHist 50 0 1 "IP2D P(charm)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip2dPb "/ip2dpb" $ yodaHist 50 0 1 "IP2D P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where

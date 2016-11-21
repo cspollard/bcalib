@@ -25,9 +25,9 @@ ip3dHs :: Fill IP3DInfo
 ip3dHs = M.unions <$> sequenceA
     [ fillH1L (ip3dNTrk.integralL) "/ip3dntrk" $ yodaHist 10 0 10 "IP3D track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L ip3dLLR "/ip3dllr" $ yodaHist 50 (-20) 30 "IP3D LLR" (dsigdXpbY "LLR" "1")
-    , fillH1L ip3dPu "/ip3dpu" $ yodaHist 50 0 1 "IP3D P(light)" (dsigdXpbY "P" "1")
-    , fillH1L ip3dPc "/ip3dpc" $ yodaHist 50 0 1 "IP3D P(charm)" (dsigdXpbY "P" "1")
-    , fillH1L ip3dPb "/ip3dpb" $ yodaHist 50 0 1 "IP3D P(bottom)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip3dPu "/ip3dpu" $ yodaHist 50 0 1 "IP3D P(light)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip3dPc "/ip3dpc" $ yodaHist 50 0 1 "IP3D P(charm)" (dsigdXpbY "P" "1")
+    -- , fillH1L ip3dPb "/ip3dpb" $ yodaHist 50 0 1 "IP3D P(bottom)" (dsigdXpbY "P" "1")
     ]
 
     where

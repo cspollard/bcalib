@@ -132,8 +132,8 @@ instance FromTTree Event where
             ci2i :: CInt -> Int
             ci2i = fromEnum
 
-            convMu True = id
-            convMu False = (*1.09)
+            convMu False = id
+            convMu True = (/1.09)
 
 withWeight :: Event -> (Double, Event)
 withWeight = view eventWeight &&& id
@@ -166,7 +166,7 @@ lepFlavorChannels =
 nJetChannels :: Fill Event -> Fill Event
 nJetChannels =
     channels 
-        [ ("/allNjets", const True)
+        [ ("/2pjet", (>= 2) . views jets length)
         , ("/2jet", (== 2) . views jets length)
         , ("/3jet", (== 3) . views jets length)
         , ("/4pjet", (>= 4) . views jets length)
