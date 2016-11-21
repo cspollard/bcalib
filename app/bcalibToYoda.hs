@@ -53,7 +53,7 @@ inArgs = InArgs
     <*> strOption
         ( long "regex"
         <> metavar "REGEX=*"
-        <> value "*" )
+        <> value ".*" )
     <*> some (strArgument (metavar "INFILES"))
 
 opts :: ParserInfo InArgs
@@ -81,7 +81,7 @@ main = do
                                 & traverse.annots.at "Title" ?~ "data"
 
                         else hs & traverse.noted._H1DD %~ scaling (lumi args * (xsecs IM.! ds) / n)
-                                & traverse.annots.at "Title" ?~ processTitle ds
+                                & traverse.annots.at "Title" ?~ ("\"" <> processTitle ds <> "\"")
 
     -- lump together non-ttbar processes
     let im'' = let f k = if k /= 0 && (k < 410000 || k > 410004)
