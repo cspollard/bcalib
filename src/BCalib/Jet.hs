@@ -63,7 +63,7 @@ jetHs =
         ] $
     channels
         ( ("/inclusive", const True)
-        : ("/pt_gt500", (> 500000) . view lvPt)
+        : ("/pt_gt500", (> 500) . view lvPt)
         : bins "/pt" (view lvPt) [20, 30, 50, 75, 100, 150, 250, 500]
         ++ bins "/eta" (abs . view lvEta) [0, 0.5, 1.0, 1.5, 2.0, 2.5]
         )
