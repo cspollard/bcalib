@@ -1,5 +1,5 @@
 rivet-mkhtml -c ext/bcalib.plot -o processplots --mc-errs \
-    -m ".*elmu/os/.*" \
+    -m $2 \
     $1/0.yoda:Title="data":LineColor=Black \
     $1/410000.yoda:Title="Pow+Py (nominal)"\
     $1/410001.yoda:Title="Pow+Py (radHi)"\
@@ -10,7 +10,7 @@ rivet-mkhtml -c ext/bcalib.plot -o processplots --mc-errs \
 
 
 rivet-mkhtml -c ext/bcalib.plot -o flavorplots --mc-errs \
-    -m ".*elmu/os/.*/allJetFlavs/.*" \
+    -m $2 \
     $1/0.yoda:Title="data":LineColor=Black \
     $1/410000_light.yoda:Title="light" \
     $1/410000_charm.yoda:Title="charm" \
