@@ -5,6 +5,6 @@ LogY=0
 
 # BEGIN PLOT /.*/mv2c10
 LogX=0
-LogY=y
+LogY=1
 Rebin=2
 # END PLOT
