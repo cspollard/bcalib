@@ -29,12 +29,12 @@ data JFInfo =
 jfHs :: Fill JFInfo
 jfHs = M.unions <$> sequenceA
     [ fillH1L (jfNVtx.integralL) "/jfnvtx" $ yodaHist 5 0 5 "JF vertex multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10000 "JF mass [GeV]" (dsigdXpbY "m" "GeV")
+    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10 "JF mass [GeV]" (dsigdXpbY "m" "GeV")
     , fillH1L (jfNSingleTrks.integralL) "/jfnsingtrks" $ yodaHist 10 0 10 "JF single track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L (jfNTrksAtVtx.integralL) "/jfntrksatvtx" $ yodaHist 10 0 10 "JF vertex track multiplicity" (dsigdXpbY "n" "1")
     , fillH1L jfEfrac "/jfefrac" $ yodaHist 50 0 1 "JF energy fraction" (dsigdXpbY "fraction" "1")
     , fillH1L (jfN2TPair.integralL) "/jfn2tpair" $ yodaHist 20 0 20 "JF n2tpair" (dsigdXpbY "n" "1")
-    , fillH1L jfLLR "/jfllr" $ yodaHist 50 (-20) 30 "JF LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L jfLLR "/jfllr" $ yodaHist 50 (-10) 10 "JF LLR" (dsigdXpbY "LLR" "1")
     -- , fillH1L jfPu "/jfpu" $ yodaHist 50 0 1 "JF P(light)" (dsigdXpbY "P" "1")
     -- , fillH1L jfPc "/jfpc" $ yodaHist 50 0 1 "JF P(charm)" (dsigdXpbY "P" "1")
     -- , fillH1L jfPb "/jfpb" $ yodaHist 50 0 1 "JF P(bottom)" (dsigdXpbY "P" "1")
