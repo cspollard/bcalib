@@ -35,7 +35,7 @@ data InArgs =
         { outfolder :: String
         , xsecfile :: String
         , lumi :: Double
-        , regex :: String
+        , regex :: Maybe String
         , infiles :: [String]
         }
 
@@ -50,10 +50,8 @@ inArgs = InArgs
     <*> option auto
         ( long "lumi"
         <> metavar "LUMI" )
-    <*> strOption
-        ( long "regex"
-        <> metavar "REGEX=*"
-        <> value ".*" )
+    <*> optional
+            (strOption (long "regex" <> metavar "REGEX=.*"))
     <*> some (strArgument (metavar "INFILES"))
 
 opts :: ParserInfo InArgs
@@ -149,7 +147,7 @@ main = do
 mergeRuns :: (Double, YodaFolder) -> (Double, YodaFolder) -> (Double, YodaFolder)
 mergeRuns (sumwgt, hs) (sumwgt', hs') = ((,) $! sumwgt+sumwgt') $! M.unionWith mergeYO hs hs'
 
-decodeFile :: String -> String -> IO (IM.IntMap (Double, YodaFolder))
+decodeFile :: Maybe String -> String -> IO (IM.IntMap (Double, YodaFolder))
 decodeFile rxp f = do
     putStrLn ("decoding file " ++ f) >> hFlush stdout
     eim <- decodeLazy . decompress <$> BS.readFile f ::
@@ -168,4 +166,6 @@ decodeFile rxp f = do
         -- TODO
         -- lens filter...
         filt :: YodaFolder -> YodaFolder
-        filt = M.filterWithKey $ \k _ -> matchTest (makeRegex rxp :: Regex) . T.unpack $ k
+        filt = case rxp of
+                Nothing -> id
+                Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
