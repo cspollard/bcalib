@@ -78,7 +78,7 @@ fillFile hs fn = do
 
     -- deal with possible missing trees
     nt <- isNullTree t
-    let l = if nt then (L.empty :: L.ListT IO (Double, Event)) else withWeight <$> project t
+    let l = if nt then (L.empty :: L.ListT IO (Double, Event)) else withWeight . overlapRemoval <$> project t
 
     hs' <- forMOf (at dsid) hs $
                 \x -> case x of

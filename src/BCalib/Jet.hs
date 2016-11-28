@@ -16,6 +16,8 @@ import Foreign.C.Types (CInt)
 import GHC.Generics hiding (to)
 import GHC.Float (float2Double)
 
+import Data.List (sortOn)
+import Data.Ord (Down(..))
 import Data.Text as T
 
 import BCalib.Histograms
@@ -101,7 +103,7 @@ lvsFromTTree ptn etan phin = do
     return $ PtEtaPhiE <$> pts <*> etas <*> phis <*> es
 
 
-readJets :: MonadIO m => Bool -> TR m (ZipList Jet)
+readJets :: MonadIO m => Bool -> TR m [Jet]
 readJets isData = do
     fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
 
@@ -115,8 +117,8 @@ readJets isData = do
                 then return $ ZipList (repeat Nothing)
                 else fmap (Just . flavFromCInt) <$> readBranch "jetsTrueFlavor"
 
-    return $ Jet
-            <$> fourmoms
+    return . sortOn (Down . view lvPt) . getZipList $
+        Jet <$> fourmoms
             <*> mv2s
             <*> ip2ds
             <*> ip3ds

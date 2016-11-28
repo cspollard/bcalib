@@ -11,6 +11,7 @@ module BCalib.Event
     , lepFlavorChannels
     , lepChargeChannels
     , nJetChannels
+    , overlapRemoval
     ) where
 
 import Control.Lens
@@ -18,7 +19,7 @@ import Control.Arrow ((&&&))
 import Control.Applicative (getZipList)
 import qualified Control.Foldl as F
 
-import Data.Map.Strict as M
+import qualified Data.Map.Strict as M
 
 import GHC.Generics (Generic)
 import GHC.Float (float2Double)
@@ -64,6 +65,11 @@ met = lens _met $ \e x -> e { _met = x }
 eventWeight :: Lens' Event Double
 eventWeight = lens _eventWeight $ \e x -> e { _eventWeight = x }
 
+overlapRemoval :: Event -> Event
+overlapRemoval evt = over jets (filter filt) evt
+    where
+        leps = view leptons evt
+        filt = not . any (< 0.2) . traverse lvDREta leps
 
 jetsHs :: Fill Event
 jetsHs = (M.unions <$> sequenceA [ allHs, jet0Hs, jet1Hs ]) <$$= jets
@@ -124,7 +130,7 @@ instance FromTTree Event where
             <*> fmap ci2i (readBranch "eventNumber")
             <*> fmap (convMu isData . float2Double) (readBranch "mu")
             <*> readLeptons
-            <*> fmap getZipList (readJets isData)
+            <*> readJets isData
             <*> readMET "MET" "METphi"
             <*> weight
 
