@@ -30,11 +30,11 @@ data SV1Info =
 
 sv1Hs :: Fill SV1Info
 sv1Hs = M.unions <$> sequenceA
-    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 110 "SV1 SV mass [GeV]" (dsigdXpbY "m" "GeV")
+    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 110 "SV1 SV mass [GeV]" (dsigdXpbY "m" gev)
     -- , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
     , fillH1L (sv1NGTSV.integralL) "/sv1ngtsv" $ yodaHist 10 0 10 "SV1 SV NGT" (dsigdXpbY "n" "1")
-    , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "fraction" "1")
-    , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-5) 15 "SV1 LLR" (dsigdXpbY "LLR" "1")
+    , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1")
+    -- , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-5) 15 "SV1 LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
     -- , fillH1L sv1Pu "/sv1pu" $ yodaHist 50 0 1 "SV1 P(light)" (dsigdXpbY "P" "1")
     -- , fillH1L sv1Pc "/sv1pc" $ yodaHist 50 0 1 "SV1 P(charm)" (dsigdXpbY "P" "1")
     -- , fillH1L sv1Pb "/sv1pb" $ yodaHist 50 0 1 "SV1 P(bottom)" (dsigdXpbY "P" "1")

@@ -6,6 +6,7 @@ module BCalib.Histograms
     , fillH1L, fillP1L
     , Fill, (<$$=)
     , channel, channels
+    , selector
     , lvHs, nH
     ) where
 {-
@@ -38,11 +39,11 @@ fillP1L :: Getter a (Double, Double) -> T.Text -> YodaObj -> Fill a
 fillP1L l n yp = M.singleton n <$> F.Fold (\yp' xs -> over (noted._P1DD) (fill (view l) xs) yp') yp id
 
 
-selector :: (a -> Bool) -> Prism' (Double, a) (Double, a)
-selector f = prism' id $ \wx@(_, x) -> if f x then Just wx else Nothing
+selector :: (a -> Bool) -> Prism' a a
+selector f = prism' id $ \x -> if f x then Just x else Nothing
 
 channel :: T.Text -> (a -> Bool) -> Fill a -> Fill a
-channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector f) fills
+channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector (f.snd)) fills
 
 
 channels :: [(T.Text, a -> Bool)] -> Fill a -> Fill a

@@ -16,7 +16,6 @@ module BCalib.Event
 
 import Control.Lens
 import Control.Arrow ((&&&))
-import Control.Applicative (getZipList)
 import qualified Control.Foldl as F
 
 import qualified Data.Map.Strict as M

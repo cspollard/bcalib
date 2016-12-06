@@ -5,8 +5,6 @@
 
 module Main where
 
-import Debug.Trace
-
 import Control.Lens
 import Control.Comonad (Comonad(..))
 import Data.Semigroup ((<>))
@@ -15,7 +13,6 @@ import Data.List (isInfixOf)
 import qualified List.Transformer as L
 import qualified Control.Foldl as F
 
-import Data.Maybe (fromMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.IntMap as IM
 import qualified Data.Text as T

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 
@@ -28,6 +29,9 @@ import Data.Atlas.ProcessInfo
 import Options.Applicative
 import System.IO (hFlush, stdout)
 
+import Data.Histogram (bmap)
+import Data.Hist (hist)
+
 import BCalib.Histograms hiding (option, (<>))
 
 data InArgs =
@@ -36,6 +40,7 @@ data InArgs =
         , xsecfile :: String
         , lumi :: Double
         , regex :: Maybe String
+        , reweight :: Bool
         , infiles :: [String]
         }
 
@@ -43,6 +48,7 @@ inArgs :: Parser InArgs
 inArgs = InArgs
     <$> strOption
         ( long "outfolder"
+        <> short 'o'
         <> metavar "OUTFOLDER" )
     <*> strOption
         ( long "xsecfile"
@@ -51,7 +57,12 @@ inArgs = InArgs
         ( long "lumi"
         <> metavar "LUMI" )
     <*> optional
-            (strOption (long "regex" <> metavar "REGEX=.*"))
+            (strOption (long "regex" <> metavar "REGEX=\".*\""))
+    <*> option auto
+        ( long "reweight"
+        <> metavar "REWEIGHT=False"
+        <> value False
+        )
     <*> some (strArgument (metavar "INFILES"))
 
 opts :: ParserInfo InArgs
@@ -97,14 +108,18 @@ main = do
                                 & ix 410003 %~ flip mergeYF hs
                                 & ix 410004 %~ flip mergeYF hs
 
-    iforM_ im''' $
+    -- TODO
+    -- this could be optimized a lot.
+    let im'''' = if reweight args
+                    then over (traverse.itraversed.indices ((&&) <$> T.isInfixOf "/light/" <*> T.isSuffixOf "mv2c10")) reweightLF im'''
+                    else im'''
+
+    iforM_ im'''' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
                     (ifoldMap printYObj hs)
 
 
-    -- TODO
-    -- this could be optimized a lot.
-    let immc = sans 0 . sans dsidOTHER $ im'''
+    let immc = sans 0 . sans dsidOTHER $ im''''
 
     -- light flavor
     let iml = flip (over traverse) immc . M.filterWithKey $
@@ -112,6 +127,7 @@ main = do
     let iml' = flip (over traverse) iml $
                     M.mapKeysMonotonic (T.replace "/light/" "/allJetFlavs/")
                     . (traverse.annots.at "Title" ?~ "light")
+
     iforM_ iml' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_light.yoda")
                     (ifoldMap printYObj hs)
@@ -157,15 +173,28 @@ decodeFile rxp f = do
          Left _ -> error $ "failed to decode file " ++ f
 
          -- immediately throw out samples we don't need
-         Right im -> return . flip IM.mapMaybeWithKey im $
-                        \ds hs -> if processTitle ds == "other"
-                                    then Nothing
-                                    else Just $! over _2' filt hs
+         Right im -> let im' = IM.mapMaybeWithKey filtProc im
+                     in im' `seq` return im'
 
     where
-        -- TODO
-        -- lens filter...
         filt :: YodaFolder -> YodaFolder
         filt = case rxp of
                 Nothing -> id
                 Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
+
+        filtProc ds hs = if processTitle ds == "other"
+                            then Nothing
+                            else Just $! over _2' filt hs
+
+
+reweightLF :: YodaObj -> YodaObj
+reweightLF = over (noted._H1DD.hist) (bmap f)
+    where
+        -- polynomial fit to fix from Fede
+        f x = scaling $
+            1.18874 
+            - 0.0386554 * x
+            - 0.122412 * x^2
+            + 0.423323 * x^3
+            - 0.0498479 * x^4
+            - 0.217662 * x^5
