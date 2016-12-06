@@ -147,10 +147,12 @@ main = do
     -- bottom
     -- use allJetFlavs since we're stacking on top of light and charm.
     let imb = flip (over traverse) immc . M.filterWithKey $
-                    \k _ -> "/allJetFlavs/" `T.isInfixOf` k
-    let imb' = flip (set (traverse.traverse.annots.at "Title")) imb $
-                    Just "bottom"
-    iforM_ imb' $
+                    \k _ -> "/bottom/" `T.isInfixOf` k
+    let imb' = flip (over traverse) imb $
+                    M.mapKeysMonotonic (T.replace "/bottom/" "/allJetFlavs/")
+                    . (traverse.annots.at "Title" ?~ "bottom")
+    let imb'' = IM.intersectionWith mergeYF imb' imc''
+    iforM_ imb'' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
                     (ifoldMap printYObj hs)
 
