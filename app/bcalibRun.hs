@@ -7,6 +7,7 @@ module Main where
 
 import Control.Lens
 import Control.Comonad (Comonad(..))
+import Control.Monad (when)
 import Data.Semigroup ((<>))
 import Data.List (isInfixOf)
 
@@ -44,18 +45,18 @@ main = do
     fns <- filter (not . null) . lines <$> readFile (infiles args)
     let fnl = L.select fns :: L.ListT IO String
 
-    let f = F.FoldM fillFile (return IM.empty) return
+    let f = F.FoldM fillFile (return Nothing) return
 
-    (imf :: IM.IntMap (Double, Fill Event)) <- F.impurely L.foldM f fnl
-    let imh = over (traverse._2') extract imf
+    (imf :: Maybe (Int, Double, Fill Event)) <- F.impurely L.foldM f fnl
+    let imh = over (_Just._3') extract imf
 
     putStrLn ("writing to file " ++ outfile args) >> hFlush stdout
 
-    BS.writeFile (outfile args) (compress . encodeLazy . over (traverse._2') (M.mapKeysMonotonic ("/bcalib" <>)) $ imh)
+    BS.writeFile (outfile args) (compress . encodeLazy . over (_Just._3') (M.mapKeysMonotonic ("/bcalib" <>)) $ imh)
 
 
-fillFile :: IM.IntMap (Double, Fill Event) -> String -> IO (IM.IntMap (Double, Fill Event))
-fillFile hs fn = do
+fillFile :: Maybe (Int, Double, Fill Event) -> String -> IO (Maybe (Int, Double, Fill Event))
+fillFile m fn = do
     putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
     -- check whether or not this is a data file
@@ -77,19 +78,18 @@ fillFile hs fn = do
     nt <- isNullTree t
     let l = if nt then (L.empty :: L.ListT IO (Double, Event)) else withWeight . overlapRemoval <$> project t
 
-    hs' <- forMOf (at dsid) hs $
-                \x -> case x of
-                        Just (n, yf) -> Just . seqT . (ninitial+n,) <$> F.purely L.fold (duplicate yf) l
-                        Nothing -> Just . seqT . (ninitial,) <$> F.purely L.fold (duplicate defHs) l
+    case m of
+        Nothing -> do
+            hs <- F.purely L.fold (duplicate defHs) l <* tfileClose f
+            hs `seq` return (Just (dsid, ninitial, hs))
 
-    tfileClose f
+        Just (dsid', n, hs') -> do
+            when (dsid /= dsid') $ error "attempting to analyse different dsids in one run!!!"
 
-    return $! hs'
+            hs <- F.purely L.fold (duplicate hs') l <* tfileClose f
+            hs `seq` return (Just (dsid, n+ninitial, hs))
 
 
     where
-        seqT (a, b) = a `seq` b `seq` (a, b)
-
-
-defHs :: Fill Event
-defHs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
+        defHs :: Fill Event
+        defHs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs

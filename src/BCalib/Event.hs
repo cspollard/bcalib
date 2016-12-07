@@ -71,7 +71,7 @@ overlapRemoval evt = over jets (filter filt) evt
         filt = not . any (< 0.2) . traverse lvDREta leps
 
 jetsHs :: Fill Event
-jetsHs = (M.unions <$> sequenceA [ allHs, jet0Hs, jet1Hs ]) <$$= jets
+jetsHs = (M.unions <$> sequenceA [ allHs {- , jet0Hs, jet1Hs -} ]) <$$= jets
 
     where
         allHs :: F.Fold (Double, [Jet]) YodaFolder
@@ -171,8 +171,8 @@ lepFlavorChannels =
 nJetChannels :: Fill Event -> Fill Event
 nJetChannels =
     channels 
-        [ ("/2pjet", (>= 2) . views jets length)
-        , ("/2jet", (== 2) . views jets length)
-        , ("/3jet", (== 3) . views jets length)
-        , ("/4pjet", (>= 4) . views jets length)
+        [ ("/2jet", (== 2) . views jets length)
+        -- , ("/3jet", (== 3) . views jets length)
+        -- , ("/4pjet", (>= 4) . views jets length)
+        -- , ("/2pjet", (>= 2) . views jets length)
         ]
