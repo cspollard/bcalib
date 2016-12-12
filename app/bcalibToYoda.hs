@@ -76,50 +76,39 @@ main = do
     xsecs <- fromMaybe (error "failed to parse xsec file.")
                 <$> (fmap.fmap.fmap) fst (readXSecFile (xsecfile args))
 
-    let fole = F.FoldM (\x s -> IM.unionWith mergeRuns x <$> decodeFile (regex args) s) (return IM.empty) return
-    im <- F.impurely L.foldM fole (L.select (infiles args) :: L.ListT IO String)
+    let f = F.FoldM (\x s -> maybe x (\(k, h) -> IM.insertWith mergeYF k h x) <$> decodeFile xsecs (lumi args) (regex args) s) (return IM.empty) return
+    im <- F.impurely L.foldM f (L.select (infiles args) :: L.ListT IO String)
 
     let im' = flip IM.mapWithKey im $
-                \ds (n, hs) ->
+                \ds hs ->
                     if ds == 0
                         then hs & traverse.annots.at "LineStyle" ?~ "none"
                                 & traverse.annots.at "LineColor" ?~ "Black"
                                 & traverse.annots.at "DotSize" ?~ "0.1"
                                 & traverse.annots.at "ErrorBars" ?~ "1"
                                 & traverse.annots.at "PolyMarker" ?~ "*"
-                                & traverse.annots.at "Title" ?~ "data"
-                                & traverse.noted._H1DD %~ scaling (1.0 / lumi args)
+                                & traverse.annots.at "Title" ?~ "\"data\""
+                        else hs & traverse.annots.at "Title" ?~ ("\"" <> processTitle ds <> "\"")
 
-                        else hs & traverse.noted._H1DD %~ scaling ((xsecs IM.! ds) / n)
-                                & traverse.annots.at "Title" ?~ ("\"" <> processTitle ds <> "\"")
-
-    -- lump together non-ttbar processes
-    let im'' = let f k = if k /= 0 && (k < 410000 || k > 410004)
-                            then dsidOTHER
-                            else k
-               in IM.mapKeysWith mergeYF f im'
-
-    let im''' = case dsidOTHER `IM.lookup` im'' of
-                    Nothing -> im''
-                    Just hs -> im''
+    let im'' = case dsidOTHER `IM.lookup` im' of
+                    Nothing -> im'
+                    Just hs -> im'
                                 & ix 410000 %~ flip mergeYF hs
                                 & ix 410001 %~ flip mergeYF hs
                                 & ix 410002 %~ flip mergeYF hs
                                 & ix 410003 %~ flip mergeYF hs
                                 & ix 410004 %~ flip mergeYF hs
 
-    -- TODO
-    -- this could be optimized a lot.
-    let im'''' = if reweight args
-                    then over (traverse.itraversed.indices ((&&) <$> T.isInfixOf "/light/" <*> T.isSuffixOf "mv2c10")) reweightLF im'''
+    let im''' = if reweight args
+                    then over (traverse.itraversed.indices ((&&) <$> T.isInfixOf "/light/" <*> T.isSuffixOf "mv2c10")) reweightLF im''
                     else im'''
 
-    iforM_ im'''' $
+    iforM_ im''' $
         \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
                     (ifoldMap printYObj hs)
 
 
-    let immc = sans 0 . sans dsidOTHER $ im''''
+    let immc = sans 0 . sans dsidOTHER $ im'''
 
     -- light flavor
     let iml = flip (over traverse) immc . M.filterWithKey $
@@ -157,36 +146,35 @@ main = do
                     (ifoldMap printYObj hs)
 
 
-    where
-        dsidOTHER = 999999
+dsidOTHER :: Int
+dsidOTHER = 999999
 
 
--- this needs to be strict or else...!!!
-mergeRuns :: (Double, YodaFolder) -> (Double, YodaFolder) -> (Double, YodaFolder)
-mergeRuns (sumwgt, hs) (sumwgt', hs') = ((,) $! sumwgt+sumwgt') $! M.unionWith mergeYO hs hs'
-
-decodeFile :: Maybe String -> String -> IO (IM.IntMap (Double, YodaFolder))
-decodeFile rxp f = do
+decodeFile :: IM.IntMap Double -> Double -> Maybe String -> String -> IO (Maybe (Int, YodaFolder))
+decodeFile xsecs lu rxp f = do
     putStrLn ("decoding file " ++ f) >> hFlush stdout
-    eim <- decodeLazy . decompress <$> BS.readFile f ::
-                IO (Either String (IM.IntMap (Double, YodaFolder)))
+    e <- decodeLazy . decompress <$> BS.readFile f ::
+                IO (Either String (Maybe (Int, Double, YodaFolder)))
 
-    case eim of
+    case e of
          Left _ -> error $ "failed to decode file " ++ f
 
-         -- immediately throw out samples we don't need
-         Right im -> let im' = IM.mapMaybeWithKey filtProc im
-                     in im' `seq` return im'
+         Right Nothing -> return Nothing
+         Right (Just (dsid, sumwgt, hs)) -> return $
+            if processTitle dsid == "other"
+                then Nothing
+                else Just $
+                    if dsid == 0
+                        then (0, over (noted._H1DD) (scaling $ 1.0/lu) <$> filt hs)
+                        else if dsid < 410000 || dsid > 410004
+                                then (dsidOTHER, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
+                                else (dsid, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
 
     where
         filt :: YodaFolder -> YodaFolder
         filt = case rxp of
                 Nothing -> id
                 Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
-
-        filtProc ds hs = if processTitle ds == "other"
-                            then Nothing
-                            else Just $! over _2' filt hs
 
 
 reweightLF :: YodaObj -> YodaObj
