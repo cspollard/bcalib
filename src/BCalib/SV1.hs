@@ -30,7 +30,7 @@ data SV1Info =
 
 sv1Hs :: Fill SV1Info
 sv1Hs = M.unions <$> sequenceA
-    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 110 "SV1 SV mass [GeV]" (dsigdXpbY "m" gev)
+    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 10 "SV1 SV mass [GeV]" (dsigdXpbY "m" gev)
     -- , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
     , fillH1L (sv1NGTSV.integralL) "/sv1ngtsv" $ yodaHist 10 0 10 "SV1 SV NGT" (dsigdXpbY "n" "1")
     , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1")
