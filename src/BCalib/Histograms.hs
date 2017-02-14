@@ -3,157 +3,70 @@
 
 module BCalib.Histograms
     ( module X
-    , eventHs
-    , withWeight
-    , lepFlavorChannels
-    , lepChargeChannels
-    , nJetChannels
+    , fillH1L, fillP1L
+    , Fill, (<$$=)
+    , channel, channels
+    , selector
+    , lvHs, nH
     ) where
+{-
+    ) where
+-}
 
-import Control.Lens hiding (Fold)
-import Control.Arrow ((&&&))
-import Control.Applicative
+import Control.Lens as X
+import Control.Applicative as X (ZipList(..), liftA2)
 
-import Control.Foldl (Fold(..))
 import qualified Control.Foldl as F
+import qualified Data.Map.Strict as M
 
-import Data.Semigroup
+import Data.Semigroup as X
 import qualified Data.Text as T
 
+import Data.HEP.LorentzVector as X
 import Data.YODA.Obj as X
 import Data.TTree as X
 import Data.Atlas.Histogramming as X
-import BCalib.Event
 
-instance Semigroup (ZipList a) where
-    ZipList xs <> ZipList ys = ZipList $ xs <> ys
-
-instance Monoid (ZipList a) where
-    mempty = ZipList []
-    mappend = (<>)
-
-instance Semigroup b => Semigroup (Fold a b) where
-    (<>) = liftA2 (<>)
-
-
-type Fill a = Fold (Double, a) YodaObj
-type Fills a = Fold (Double, a) (ZipList YodaObj)
+type Fill a = F.Fold (Double, a) YodaFolder
 
 fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
 fill l (w, x) = filling w (l x)
 
-fillH1 :: Getter a Double -> (Double, a) -> YodaObj -> YodaObj
-fillH1 l (w, x) = over (noted._H1DD) (fill (view l) (w, x))
+fillH1L :: Getter a Double -> T.Text -> YodaObj -> Fill a
+fillH1L l n yh = M.singleton n <$> F.Fold (\yh' xs -> over (noted._H1DD) (fill (view l) xs) yh') yh id
 
-fillP1 :: Getter a (Double, Double) -> (Double, a) -> YodaObj -> YodaObj
-fillP1 l (w, x) = over (noted._P1DD) (fill (view l) (w, x))
+fillP1L :: Getter a (Double, Double) -> T.Text -> YodaObj -> Fill a
+fillP1L l n yp = M.singleton n <$> F.Fold (\yp' xs -> over (noted._P1DD) (fill (view l) xs) yp') yp id
+
+
+selector :: (a -> Bool) -> Prism' a a
+selector f = prism' id $ \x -> if f x then Just x else Nothing
+
+channel :: T.Text -> (a -> Bool) -> Fill a -> Fill a
+channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector (f.snd)) fills
+
+
+channels :: [(T.Text, a -> Bool)] -> Fill a -> Fill a
+channels fns fills = mconcat $ uncurry channel <$> fns <*> pure fills
 
 
 nH :: Foldable f => Int -> Fill (f a)
-nH mx = Fold (flip $ fillH1 (to $ fromIntegral . length)) hist id
-    where
-        hist = yodaHist mx 0 (fromIntegral mx) "/n" "$n$" ""
-
-muH :: Fill Event
-muH = Fold (flip $ fillH1 mu) hist id
-    where
-        hist = yodaHist 50 0 50 "/mu" "$ <\\mu> $" ""
+nH mx = fillH1L (to $ fromIntegral.length) "/n" $
+    yodaHist mx 0 (fromIntegral mx) "$n$" (dsigdXpbY "n" "1")
 
 ptH :: HasLorentzVector a => Fill a
-ptH = Fold (flip $ fillH1 lvPt) hist id
-    where
-        hist = yodaHist 25 0 250000 "/pt" "$p_{\\mathrm T}$ [MeV]" ""
+ptH = fillH1L lvPt "/pt" $
+    yodaHist 50 0 500 "$p_{\\mathrm T}$ [GeV]" (dsigdXpbY pt gev)
 
 etaH :: HasLorentzVector a => Fill a
-etaH = Fold (flip $ fillH1 lvEta) hist id
-    where
-        hist = yodaHist 30 (-3) 3 "/eta" "$\\eta$" ""
+etaH = fillH1L lvEta "/eta" $
+    yodaHist 30 (-3) 3 "$\\eta$" (dsigdXpbY "\\eta" "{\\mathrm rad}")
+
+infixl 2 <$$=
+(<$$=) :: Fill b -> Getter a b -> Fill a
+fs <$$= l = F.premap (fmap (view l)) fs
 
 
 -- generic histograms for a lorentz vector
-lvHs :: HasLorentzVector a => Fills a
-lvHs = sequenceA (ZipList [ptH, etaH])
-
-ftagHs :: Fills Jet
-ftagHs = sequenceA . ZipList $
-    [ ftagH mv2c00 "mv2c00" (-1) 1
-    , ftagH mv2c10 "mv2c10" (-1) 1
-    , ftagH mv2c20 "mv2c20" (-1) 1
-    , ftagH mv2c100 "mv2c100" (-1) 1
-    , ftagH mv2cl100 "mv2cl100" (-1) 1
-    , ftagH ip2dLLR "ip2dLLR" (-20) 30
-    , ftagH ip3dLLR "ip3dLLR" (-20) 30
-    , ftagH sv1LLR "sv1LLR" (-5) 15
-    , ftagH jfLLR "jfLLR" (-10) 10
-    ]
-    where
-        ftagH :: Lens' Jet Double -> T.Text -> Double -> Double -> Fill Jet
-        ftagH l n mn mx =
-            let hist = yodaHist 50 mn mx ("/" <> n) n ""
-            in Fold (flip $ fillH1 l) hist id
-
-
-jetsHs :: Fills Event
-jetsHs =
-    (F.handles traverse (lvHs <> ftagHs) <$= sequenceA)
-        <> sequenceA (ZipList [nH 10])
-    <$= fmap (view jets)
-    <&> fmap (over path ("/jets" <>) . over xlabel ("jet " <>))
-
-lepsHs :: Fills Event
-lepsHs =
-    -- TODO
-    -- must be better way to write this...
-    F.handles traverse lvHs <$= (\(w, e) -> let (l1, l2) = view leptons e in [(w, l1), (w, l2)])
-    <&> fmap (over path ("/leps" <>) . over xlabel ("lep " <>))
-
-
-withWeight :: Event -> (Double, Event)
-withWeight = view eventWeight &&& id
-
-eventHs :: Fills Event
-eventHs = lepsHs <> jetsHs <> sequenceA (ZipList [muH])
-
-selector :: (a -> Bool) -> Prism' (Double, a) (Double, a)
-selector f = prism' id $ \wx@(_, x) -> if f x then Just wx else Nothing
-
-channel :: T.Text -> (a -> Bool) -> Fills a -> Fills a
-channel n f fills = fmap (over path (n <>)) <$> F.handles (selector f) fills
-
-
-channels :: [(T.Text, a -> Bool)] -> Fills a -> Fills a
-channels fns fills = fmap mconcat . sequenceA $ uncurry channel <$> fns <*> pure fills
-
-
-leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool
-leptonFlavors flvs e = flvs == (view leptons e & over both (view lepFlavor))
-
-leptonCharges :: (LCharge, LCharge) -> Event -> Bool
-leptonCharges chgs e = chgs == (view leptons e & over both (view lepCharge))
-
-
-lepChargeChannels :: Fills Event -> Fills Event
-lepChargeChannels =
-    channels
-        [ ("/allLepCharge", const True)
-        , ("/os", (||) <$> leptonCharges (Plus, Minus) <*> leptonCharges (Minus, Plus))
-        , ("/ss", (||) <$> leptonCharges (Plus, Plus) <*> leptonCharges (Minus, Minus))
-        ]
-
-lepFlavorChannels :: Fills Event -> Fills Event
-lepFlavorChannels =
-    channels 
-        [ ("/allLepFlav", const True)
-        , ("/elmu", (||) <$> leptonFlavors (Electron, Muon) <*> leptonFlavors (Muon, Electron))
-        , ("/mumu", leptonFlavors (Muon, Muon))
-        , ("/elel", leptonFlavors (Electron, Electron))
-        ]
-
-nJetChannels :: Fills Event -> Fills Event
-nJetChannels =
-    channels 
-        [ ("/allNjets", const True)
-        , ("/2jet", (== 2) . views jets length)
-        , ("/3jet", (== 3) . views jets length)
-        , ("/4pjet", (>= 4) . views jets length)
-        ]
+lvHs :: HasLorentzVector a => Fill a
+lvHs = mappend <$> ptH <*> etaH
