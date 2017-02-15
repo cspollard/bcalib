@@ -1,59 +1,60 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.IP2D where
 
-import GHC.Float
-import GHC.Generics hiding (to)
+import           Control.Applicative (ZipList (..))
+import           Data.Map.Strict     as M
+import           GHC.Float
+import           GHC.Generics        hiding (to)
 
-import Data.Map.Strict as M
-
-import BCalib.Histograms
+import           BCalib.Histograms
+import           Data.TTree
 
 
 data IP2DInfo =
-    IP2DInfo
-        { _ip2dNTrk :: Int
-        , _ip2dLLR :: Double
-        , _ip2dPu :: Double
-        , _ip2dPc :: Double
-        , _ip2dPb :: Double
-        } deriving (Generic, Show)
+  IP2DInfo
+    { _ip2dNTrk :: Int
+    , _ip2dLLR  :: Double
+    , _ip2dPu   :: Double
+    , _ip2dPc   :: Double
+    , _ip2dPb   :: Double
+    } deriving (Generic, Show)
 
 
 ip2dHs :: Fill IP2DInfo
 ip2dHs = M.unions <$> sequenceA
-    [ fillH1L (ip2dNTrk.integralL) "/ip2dntrk" $ yodaHist 20 0 20 "IP2D track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L ip2dLLR "/ip2dllr" $ yodaHist 50 (-20) 30 "IP2D LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
-    -- , fillH1L ip2dPu "/ip2dpu" $ yodaHist 50 0 1 "IP2D P(light)" (dsigdXpbY "P" "1")
-    -- , fillH1L ip2dPc "/ip2dpc" $ yodaHist 50 0 1 "IP2D P(charm)" (dsigdXpbY "P" "1")
-    -- , fillH1L ip2dPb "/ip2dpb" $ yodaHist 50 0 1 "IP2D P(bottom)" (dsigdXpbY "P" "1")
-    ]
+  [ hist1DDef (binD 0 20 20) "IP2D track multiplicity" (dsigdXpbY "n" "1") "/ip2dntrk"
+    <$$= (ip2dNTrk.integralL)
+  , hist1DDef (binD (-20) 50 30) "IP2D LLR" (dsigdXpbY "\\mathrm{LLR}" "1") "/ip2dllr"
+    <$$= ip2dLLR
+  ]
 
-    where
-        integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
-        integralL = to fromIntegral
+  where
+    -- don't know why this is necessary...
+    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
+    integralL = to fromIntegral
 
 
 readIP2Ds :: MonadIO m => TR m (ZipList IP2DInfo)
 readIP2Ds = do
-    ntrk <- readI "jetsIP2D_ntrk"
-    llr <- readD "jetsIP2D_loglikelihoodratio"
-    pu <- readD "jetsIP2D_pu"
-    pc <- readD "jetsIP2D_pc"
-    pb <- readD "jetsIP2D_pb"
+  ntrk <- readI "jetsIP2D_ntrk"
+  llr <- readD "jetsIP2D_loglikelihoodratio"
+  pu <- readD "jetsIP2D_pu"
+  pc <- readD "jetsIP2D_pc"
+  pb <- readD "jetsIP2D_pb"
 
-    return $ IP2DInfo
-        <$> ntrk
-        <*> llr
-        <*> pu
-        <*> pc
-        <*> pb
+  return $ IP2DInfo
+    <$> ntrk
+    <*> llr
+    <*> pu
+    <*> pc
+    <*> pb
 
-    where
-        readD n = fmap float2Double <$> readBranch n
-        readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
+  where
+    readD n = fmap float2Double <$> readBranch n
+    readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
 
 
 -- TODO

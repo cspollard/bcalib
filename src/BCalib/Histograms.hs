@@ -7,14 +7,15 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module BCalib.Histograms where
-    -- ( module X
-    -- , fillH1L, fillP1L
-    -- , Fill, (<$$=)
-    -- , channel, channels
-    -- , selector
-    -- , lvHs, nH
-    -- ) where
+module BCalib.Histograms
+    ( module X
+    , hist1DDef, prof1DDef
+    , Fill
+    , channel, channels
+    , selector
+    , lvHs, nH
+    , (<$$=)
+    ) where
 
 import qualified Control.Foldl            as F
 import           Control.Lens             as X
@@ -30,6 +31,8 @@ import           Data.Atlas.Histogramming as X
 import           Data.HEP.LorentzVector   as X
 import           Data.YODA.Obj            as X
 
+type Fill a = F.Fold (a, Double) YodaFolder
+
 channel :: T.Text -> (a -> Bool) -> F.Fold a YodaFolder -> F.Fold a YodaFolder
 channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector f) fills
 
@@ -44,37 +47,36 @@ hEmpty b =
       uo = Just (mempty, mempty)
   in G.histogramUO b uo v
 
-hist1DDefault
+hist1DDef
   :: (BinValue b ~ Double, IntervalBin b)
   => b -> Text -> Text -> Text -> F.Fold (Double, Double) YodaFolder
-hist1DDefault b xt yt pa =
+hist1DDef b xt yt pa =
     M.singleton pa
       . Annotated [("XTitle", xt), ("YTitle", yt)]
       . H1DD
       . over bins toArbBin
       <$> hist1DFill (hEmpty b)
 
-prof1DDefault
+prof1DDef
   :: (BinValue b ~ Double, IntervalBin b)
   => b -> Text -> Text -> Text -> F.Fold ((Double, Double), Double) YodaFolder
-prof1DDefault b xt yt pa =
+prof1DDef b xt yt pa =
     M.singleton pa
       . Annotated [("XTitle", xt), ("YTitle", yt)]
       . P1DD
       . over bins toArbBin
       <$> prof1DFill (hEmpty b)
 
-type Fill a = F.Fold (a, Double) YodaFolder
 
 nH :: Foldable f => Int -> Fill (f a)
 nH n =
   F.premap (first $ fromIntegral . length)
-    $ hist1DDefault (binD 0 n (fromIntegral n)) "$n$" (dsigdXpbY "n" "1") "/n"
+    $ hist1DDef (binD 0 n (fromIntegral n)) "$n$" (dsigdXpbY "n" "1") "/n"
 
 ptH :: HasLorentzVector a => Fill a
 ptH =
   F.premap (first $ view lvPt)
-    $ hist1DDefault
+    $ hist1DDef
       (binD 0 50 500)
       "$p_{\\mathrm T}$ [GeV]"
       (dsigdXpbY pt gev)
@@ -83,7 +85,7 @@ ptH =
 etaH :: HasLorentzVector a => Fill a
 etaH =
   F.premap (first $ view lvEta)
-    $ hist1DDefault
+    $ hist1DDef
       (binD (-3) 39 3)
       "$\\eta$"
       (dsigdXpbY "\\eta" "{\\mathrm rad}")
@@ -96,3 +98,7 @@ lvHs = mappend <$> ptH <*> etaH
 
 selector :: (a -> Bool) -> Prism' a a
 selector f = prism' id $ \x -> if f x then Just x else Nothing
+
+infixl 2 <$$=
+(<$$=) :: Fill b -> Getter a b -> Fill a
+fs <$$= l = F.premap (first (view l)) fs

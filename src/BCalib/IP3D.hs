@@ -1,58 +1,59 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.IP3D where
 
-import GHC.Float
-import GHC.Generics hiding (to)
+import           Control.Applicative (ZipList (..))
+import           Data.Map.Strict     as M
+import           GHC.Float
+import           GHC.Generics        hiding (to)
 
-import Data.Map.Strict as M
-import BCalib.Histograms
+import           BCalib.Histograms
+import           Data.TTree
 
 
 data IP3DInfo =
     IP3DInfo
         { _ip3dNTrk :: Int
-        , _ip3dLLR :: Double
-        , _ip3dPu :: Double
-        , _ip3dPc :: Double
-        , _ip3dPb :: Double
+        , _ip3dLLR  :: Double
+        , _ip3dPu   :: Double
+        , _ip3dPc   :: Double
+        , _ip3dPb   :: Double
         } deriving (Generic, Show)
 
 
 ip3dHs :: Fill IP3DInfo
 ip3dHs = M.unions <$> sequenceA
-    [ fillH1L (ip3dNTrk.integralL) "/ip3dntrk" $ yodaHist 20 0 20 "IP3D track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L ip3dLLR "/ip3dllr" $ yodaHist 50 (-20) 30 "IP3D LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
-    -- , fillH1L ip3dPu "/ip3dpu" $ yodaHist 50 0 1 "IP3D P(light)" (dsigdXpbY "P" "1")
-    -- , fillH1L ip3dPc "/ip3dpc" $ yodaHist 50 0 1 "IP3D P(charm)" (dsigdXpbY "P" "1")
-    -- , fillH1L ip3dPb "/ip3dpb" $ yodaHist 50 0 1 "IP3D P(bottom)" (dsigdXpbY "P" "1")
-    ]
+  [ hist1DDef (binD 0 20 20) "IP3D track multiplicity" (dsigdXpbY "n" "1") "/ip3dntrk"
+    <$$= (ip3dNTrk.integralL)
+  , hist1DDef (binD (-20) 50 30) "IP3D LLR" (dsigdXpbY "\\mathrm{LLR}" "1") "/ip3dllr"
+    <$$= ip3dLLR
+  ]
 
-    where
-        integralL :: Num a => Getter Int a
-        integralL = to fromIntegral
+  where
+    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
+    integralL = to fromIntegral
 
 
 readIP3Ds :: MonadIO m => TR m (ZipList IP3DInfo)
 readIP3Ds = do
-    ntrk <- readI "jetsIP3D_ntrk"
-    llr <- readD "jetsIP3D_loglikelihoodratio"
-    pu <- readD "jetsIP3D_pu"
-    pc <- readD "jetsIP3D_pc"
-    pb <- readD "jetsIP3D_pb"
+  ntrk <- readI "jetsIP3D_ntrk"
+  llr <- readD "jetsIP3D_loglikelihoodratio"
+  pu <- readD "jetsIP3D_pu"
+  pc <- readD "jetsIP3D_pc"
+  pb <- readD "jetsIP3D_pb"
 
-    return $ IP3DInfo
-        <$> ntrk
-        <*> llr
-        <*> pu
-        <*> pc
-        <*> pb
+  return $ IP3DInfo
+    <$> ntrk
+    <*> llr
+    <*> pu
+    <*> pc
+    <*> pb
 
-    where
-        readD n = fmap float2Double <$> readBranch n
-        readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
+  where
+    readD n = fmap float2Double <$> readBranch n
+    readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
 
 
 -- TODO
