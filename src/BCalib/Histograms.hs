@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes        #-}
 
 module BCalib.Histograms
     ( module X
@@ -9,38 +9,21 @@ module BCalib.Histograms
     , selector
     , lvHs, nH
     ) where
-{-
-    ) where
--}
 
-import Control.Lens as X
-import Control.Applicative as X (ZipList(..), liftA2)
+import           Control.Applicative      as X (ZipList (..), liftA2)
+import qualified Control.Foldl            as F
+import           Control.Lens             as X
+import qualified Data.Map.Strict          as M
+import           Data.Semigroup           as X
+import qualified Data.Text                as T
 
-import qualified Control.Foldl as F
-import qualified Data.Map.Strict as M
-
-import Data.Semigroup as X
-import qualified Data.Text as T
-
-import Data.HEP.LorentzVector as X
-import Data.YODA.Obj as X
-import Data.TTree as X
-import Data.Atlas.Histogramming as X
-
-type Fill a = F.Fold (Double, a) YodaFolder
-
-fill :: Fillable h => (a -> FillVec h) -> (Weight h, a) -> h -> h
-fill l (w, x) = filling w (l x)
-
-fillH1L :: Getter a Double -> T.Text -> YodaObj -> Fill a
-fillH1L l n yh = M.singleton n <$> F.Fold (\yh' xs -> over (noted._H1DD) (fill (view l) xs) yh') yh id
-
-fillP1L :: Getter a (Double, Double) -> T.Text -> YodaObj -> Fill a
-fillP1L l n yp = M.singleton n <$> F.Fold (\yp' xs -> over (noted._P1DD) (fill (view l) xs) yp') yp id
+import           Data.Atlas.Histogramming as X
+import           Data.HEP.LorentzVector   as X
+import           Data.TTree               as X
+import           Data.YODA.Obj            as X
 
 
-selector :: (a -> Bool) -> Prism' a a
-selector f = prism' id $ \x -> if f x then Just x else Nothing
+type FolderFill m a = forall b. IntervalBin b => YodaHist
 
 channel :: T.Text -> (a -> Bool) -> Fill a -> Fill a
 channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector (f.snd)) fills
