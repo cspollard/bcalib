@@ -52,7 +52,7 @@ hist1DDef
   => b -> Text -> Text -> Text -> F.Fold (Double, Double) YodaFolder
 hist1DDef b xt yt pa =
     M.singleton pa
-      . Annotated [("XTitle", xt), ("YTitle", yt)]
+      . Annotated [("XLabel", xt), ("YLabel", yt)]
       . H1DD
       . over bins toArbBin
       <$> hist1DFill (hEmpty b)
@@ -62,7 +62,7 @@ prof1DDef
   => b -> Text -> Text -> Text -> F.Fold ((Double, Double), Double) YodaFolder
 prof1DDef b xt yt pa =
     M.singleton pa
-      . Annotated [("XTitle", xt), ("YTitle", yt)]
+      . Annotated [("XLabel", xt), ("YLabel", yt)]
       . P1DD
       . over bins toArbBin
       <$> prof1DFill (hEmpty b)

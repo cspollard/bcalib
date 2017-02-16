@@ -87,6 +87,8 @@ main = do
                               & traverse.annots.at "Title" ?~ "\"data\""
                       else hs & traverse.annots.at "Title" ?~ ("\"" <> processTitle ds <> "\"")
 
+  -- the "flip"s below are required so we don't clobber the
+  -- annotations of the histogram we're keeping.
   let im'' = case dsidOTHER `IM.lookup` im' of
                   Nothing -> im'
                   Just hs -> im'
@@ -98,12 +100,11 @@ main = do
 
   let im''' = if reweight args
                   then over (traverse.itraversed.indices ((&&) <$> T.isInfixOf "/light/" <*> T.isSuffixOf "mv2c10")) reweightLF im''
-                  else im'''
+                  else im''
 
   iforM_ im''' $
       \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ ".yoda")
                   (ifoldMap printYodaObj hs)
-
 
   let immc = sans 0 . sans dsidOTHER $ im'''
 
@@ -116,7 +117,7 @@ main = do
 
   iforM_ iml' $
       \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_light.yoda")
-                  (ifoldMap printYodaObj hs)
+                    (ifoldMap printYodaObj hs)
 
   -- charm
   -- need to add light contribution for stack plots.
@@ -126,6 +127,7 @@ main = do
                   M.mapKeysMonotonic (T.replace "/charm/" "/allJetFlavs/")
                   . (traverse.annots.at "Title" ?~ "charm")
   let imc'' = IM.intersectionWith mergeYF imc' iml'
+
   iforM_ imc'' $
       \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_charm.yoda")
                   (ifoldMap printYodaObj hs)
@@ -138,6 +140,7 @@ main = do
                   M.mapKeysMonotonic (T.replace "/bottom/" "/allJetFlavs/")
                   . (traverse.annots.at "Title" ?~ "bottom")
   let imb'' = IM.intersectionWith mergeYF imb' imc''
+
   iforM_ imb'' $
       \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
                   (ifoldMap printYodaObj hs)
@@ -149,39 +152,41 @@ dsidOTHER = 999999
 
 decodeFile :: IM.IntMap Double -> Double -> Maybe String -> String -> IO (Maybe (Int, YodaFolder))
 decodeFile xsecs lu rxp f = do
-    putStrLn ("decoding file " ++ f) >> hFlush stdout
-    e <- decodeLazy . decompress <$> BS.readFile f ::
-                IO (Either String (Maybe (Int, Double, YodaFolder)))
+  putStrLn ("decoding file " ++ f) >> hFlush stdout
+  e <- decodeLazy . decompress <$> BS.readFile f ::
+              IO (Either String (Maybe (Int, Double, YodaFolder)))
 
-    case e of
-         Left _ -> error $ "failed to decode file " ++ f
+  case e of
+       Left _ -> error $ "failed to decode file " ++ f
 
-         Right Nothing -> return Nothing
-         Right (Just (dsid, sumwgt, hs)) -> return $
-            if processTitle dsid == "other"
-                then Nothing
-                else Just $
-                    if dsid == 0
-                        then (0, over (noted._H1DD) (scaling $ 1.0/lu) <$> filt hs)
-                        else if dsid < 410000 || dsid > 410004
-                                then (dsidOTHER, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
-                                else (dsid, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
+       Right Nothing -> return Nothing
+       Right (Just (dsid, sumwgt, hs)) ->
+        return $
+          if processTitle dsid == "other"
+            then Nothing
+            else Just $
+              if dsid == 0
+                then (0, over (noted._H1DD) (scaling $ 1.0/lu) <$> filt hs)
+                else if dsid < 410000 || dsid > 410004
+                  then (dsidOTHER, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
+                  else (dsid, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
 
-    where
-        filt :: YodaFolder -> YodaFolder
-        filt = case rxp of
-                Nothing -> id
-                Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
+  where
+    filt :: YodaFolder -> YodaFolder
+    filt =
+      case rxp of
+        Nothing -> id
+        Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
 
 
 reweightLF :: YodaObj -> YodaObj
 reweightLF = over (noted._H1DD) (bmap f)
-    where
-        -- polynomial fit to fix from Fede
-        f x = scaling $
-            1.18874
-            - 0.0386554 * x
-            - 0.122412 * x^2
-            + 0.423323 * x^3
-            - 0.0498479 * x^4
-            - 0.217662 * x^5
+  where
+    -- polynomial fit to fix from Fede
+    f x = scaling $
+      1.18874
+      - 0.0386554 * x
+      - 0.122412 * x^2
+      + 0.423323 * x^3
+      - 0.0498479 * x^4
+      - 0.217662 * x^5

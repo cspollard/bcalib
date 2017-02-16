@@ -97,7 +97,7 @@ distributeT ((e, f), x) = ((e, x), (f, x))
 lepsHs :: Fill Event
 lepsHs =
   F.handles (to (first $ view leptons) . to distributeT . both) lepHs
-    <&> (M.mapKeysMonotonic ("/leps" <>) . over (traverse.xlabel) ("lep " <>))
+    <&> (M.mapKeysMonotonic ("/leps" <>) . over (traverse.xlabel) ("lepton " <>))
 
 muH :: Fill Event
 muH =
