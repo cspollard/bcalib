@@ -1,130 +1,130 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module BCalib.Jet
-    ( module X
-    , Jet(Jet)
-    , JetFlavor(..)
-    , mv2info, ip2dinfo, ip3dinfo, sv1info, jfinfo, truthFlavor
-    , jetHs
-    , readJets
-    ) where
+  ( module X
+  , Jet(Jet)
+  , JetFlavor(..)
+  , mv2info, ip2dinfo, ip3dinfo, sv1info, jfinfo, truthFlavor
+  , jetHs
+  , readJets
+  ) where
 
-import Control.Lens
+import           Control.Applicative    (ZipList (..))
+import           Control.Lens
+import           Data.List              (sortOn)
+import           Data.Ord               (Down (..))
+import           Data.Text              as T
+import           Foreign.C.Types        (CInt)
+import           GHC.Float              (float2Double)
+import           GHC.Generics           hiding (to)
 
-import Foreign.C.Types (CInt)
-import GHC.Generics hiding (to)
-import GHC.Float (float2Double)
-
-import Data.List (sortOn)
-import Data.Ord (Down(..))
-import Data.Text as T
-
-import BCalib.Histograms
-
-import Data.HEP.LorentzVector as X
-import BCalib.IP2D as X
-import BCalib.IP3D as X
-import BCalib.JF as X
-import BCalib.MV2 as X
-import BCalib.SV1 as X
+import           BCalib.Histograms
+import           BCalib.IP2D            as X
+import           BCalib.IP3D            as X
+import           BCalib.JF              as X
+import           BCalib.MV2             as X
+import           BCalib.SV1             as X
+import           Data.HEP.LorentzVector as X
+import           Data.TTree
 
 data JetFlavor = L | C | B
     deriving (Generic, Show, Eq, Ord)
 
 flavFromCInt :: CInt -> JetFlavor
-flavFromCInt x = case x of
-                    5 -> B
-                    4 -> C
-                    0 -> L
-                    _ -> error $ "bad jet flavor label: " ++ show x
+flavFromCInt x =
+  case x of
+    5 -> B
+    4 -> C
+    0 -> L
+    _ -> error $ "bad jet flavor label: " ++ show x
 
 
 data Jet =
-    Jet
-        { _jfourmom :: PtEtaPhiE
-        , _mv2info :: MV2Info
-        , _ip2dinfo :: IP2DInfo
-        , _ip3dinfo :: IP3DInfo
-        , _sv1info :: SV1Info
-        , _jfinfo :: JFInfo
-        , _truthFlavor :: Maybe JetFlavor
-        } deriving (Generic, Show)
+  Jet
+    { _jfourmom    :: PtEtaPhiE
+    , _mv2info     :: MV2Info
+    , _ip2dinfo    :: IP2DInfo
+    , _ip3dinfo    :: IP3DInfo
+    , _sv1info     :: SV1Info
+    , _jfinfo      :: JFInfo
+    , _truthFlavor :: Maybe JetFlavor
+    } deriving (Generic, Show)
 
 instance HasLorentzVector Jet where
-    toPtEtaPhiE = jfourmom
+  toPtEtaPhiE = jfourmom
 
 
 jetHs :: Fill Jet
 jetHs =
-    channels
-        [ ("/allJetFlavs", const True)
-        , ("/light", views truthFlavor (== Just L))
-        , ("/charm", views truthFlavor (== Just C))
-        , ("/bottom", views truthFlavor (== Just B))
-        ] $
-    channels
-        ( ("/inclusive", const True)
-        : ("/pt_gt500", (> 500) . view lvPt)
-        : bins "/pt" (view lvPt) [20, 30, 50, 75, 100, 150, 250, 500]
-        ++ bins "/eta" (abs . view lvEta) [0, 0.5, 1.0, 1.5, 2.0, 2.5]
-        )
-        $
-    mconcat
-        [ lvHs
-        , sv1Hs <$$= sv1info
-        , jfHs <$$= jfinfo
-        , ip2dHs <$$= ip2dinfo
-        , ip3dHs <$$= ip3dinfo
-        , mv2Hs <$$= mv2info
-        ]
+  channels
+    [ ("/allJetFlavs", const True)
+    , ("/light", views truthFlavor (== Just L))
+    , ("/charm", views truthFlavor (== Just C))
+    , ("/bottom", views truthFlavor (== Just B))
+    ]
+  $ channels
+    ( ("/inclusive", const True)
+    : ("/pt_gt500", (> 500) . view lvPt)
+    : bins' "/pt" (view lvPt) [20, 30, 50, 75, 100, 150, 250, 500]
+    ++ bins' "/eta" (abs . view lvEta) [0, 0.5, 1.0, 1.5, 2.0, 2.5]
+    )
+  $ mconcat
+    [ lvHs
+    , sv1Hs <$$= sv1info
+    , jfHs <$$= jfinfo
+    , ip2dHs <$$= ip2dinfo
+    , ip3dHs <$$= ip3dinfo
+    , mv2Hs <$$= mv2info
+    ]
 
-    where
-        bins :: T.Text -> (Jet -> Double) -> [Double] -> [(T.Text, Jet -> Bool)]
+  where
+    bins' :: T.Text -> (Jet -> Double) -> [Double] -> [(T.Text, Jet -> Bool)]
 
-        bins lab f (b0:b1:bs) =
-            ( fixT $ lab <> "_" <> T.pack (show b0) <> "_" <> T.pack (show b1)
-            , \j -> let x = f j in b0 < x && x < b1
-            ) : bins lab f (b1:bs)
+    bins' lab f (b0:b1:bs) =
+      ( fixT $ lab <> "_" <> T.pack (show b0) <> "_" <> T.pack (show b1)
+      , \j -> let x = f j in b0 < x && x < b1
+      ) : bins' lab f (b1:bs)
 
-        bins _ _ _ = []
+    bins' _ _ _ = []
 
-        fixT = T.replace "-" "m"
+    fixT = T.replace "-" "m"
 
 
 lvsFromTTree :: MonadIO m => String -> String -> String -> TR m (ZipList PtEtaPhiE)
 lvsFromTTree ptn etan phin = do
-    pts <- fmap (float2Double . (/ 1e3)) <$> readBranch ptn
-    etas <- fmap float2Double <$> readBranch etan
-    phis <- fmap float2Double <$> readBranch phin
+  pts <- fmap (float2Double . (/ 1e3)) <$> readBranch ptn
+  etas <- fmap float2Double <$> readBranch etan
+  phis <- fmap float2Double <$> readBranch phin
 
-    let es = (\pt eta -> pt * cosh eta) <$> pts <*> etas
+  let es = (\pt' eta -> pt' * cosh eta) <$> pts <*> etas
 
-    return $ PtEtaPhiE <$> pts <*> etas <*> phis <*> es
+  return $ PtEtaPhiE <$> pts <*> etas <*> phis <*> es
 
 
 readJets :: MonadIO m => Bool -> TR m [Jet]
 readJets isData = do
-    fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
+  fourmoms <- lvsFromTTree "jetsMomPt" "jetsMomEta" "jetsMomPhi"
 
-    mv2s <- readMV2s
-    ip2ds <- readIP2Ds
-    ip3ds <- readIP3Ds
-    sv1s <- readSV1s
-    jfs <- readJFs
+  mv2s <- readMV2s
+  ip2ds <- readIP2Ds
+  ip3ds <- readIP3Ds
+  sv1s <- readSV1s
+  jfs <- readJFs
 
-    flvs <- if isData
-                then return $ ZipList (repeat Nothing)
-                else fmap (Just . flavFromCInt) <$> readBranch "jetsTrueFlavor"
+  flvs <-
+    if isData
+      then return $ ZipList (repeat Nothing)
+      else fmap (Just . flavFromCInt) <$> readBranch "jetsTrueFlavor"
 
-    return . sortOn (Down . view lvPt) . getZipList $
-        Jet <$> fourmoms
-            <*> mv2s
-            <*> ip2ds
-            <*> ip3ds
-            <*> sv1s
-            <*> jfs
-            <*> flvs
+  return . sortOn (Down . view lvPt) . getZipList
+    $ Jet <$> fourmoms
+      <*> mv2s
+      <*> ip2ds
+      <*> ip3ds
+      <*> sv1s
+      <*> jfs
+      <*> flvs
 
 
 

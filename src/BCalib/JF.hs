@@ -1,78 +1,87 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.JF where
 
-import GHC.Float
-import GHC.Generics hiding (to)
+import           Control.Applicative (ZipList (..))
+import           Data.Map.Strict     as M
+import           GHC.Float
+import           GHC.Generics        hiding (to)
 
-import Data.Map.Strict as M
-
-import BCalib.Histograms
+import           BCalib.Histograms
+import           Data.TTree
 
 
 data JFInfo =
-    JFInfo
-        { _jfNVtx :: Int
-        , _jfMass :: Double
-        , _jfNSingleTrks :: Int
-        , _jfNTrksAtVtx :: Int
-        , _jfEfrac :: Double
-        , _jfN2TPair :: Int
-        , _jfLLR :: Double
-        , _jfPu :: Double
-        , _jfPc :: Double
-        , _jfPb :: Double
-        } deriving (Generic, Show)
+  JFInfo
+    { _jfNVtx        :: Int
+    , _jfMass        :: Double
+    , _jfNSingleTrks :: Int
+    , _jfNTrksAtVtx  :: Int
+    , _jfEfrac       :: Double
+    , _jfN2TPair     :: Int
+    , _jfLLR         :: Double
+    , _jfPu          :: Double
+    , _jfPc          :: Double
+    , _jfPb          :: Double
+    } deriving (Generic, Show)
 
 jfHs :: Fill JFInfo
 jfHs = M.unions <$> sequenceA
-    [ fillH1L (jfNVtx.integralL) "/jfnvtx" $ yodaHist 5 0 5 "JF vertex multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfMass "/jfmass" $ yodaHist 50 0 10 "JF mass [GeV]" (dsigdXpbY "m" gev)
-    , fillH1L (jfNSingleTrks.integralL) "/jfnsingtrks" $ yodaHist 10 0 10 "JF single track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L (jfNTrksAtVtx.integralL) "/jfntrksatvtx" $ yodaHist 10 0 10 "JF vertex track multiplicity" (dsigdXpbY "n" "1")
-    , fillH1L jfEfrac "/jfefrac" $ yodaHist 50 0 1 "JF energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1")
-    , fillH1L (jfN2TPair.integralL) "/jfn2tpair" $ yodaHist 20 0 20 "JF n2tpair" (dsigdXpbY "n" "1")
-    , fillH1L jfLLR "/jfllr" $ yodaHist 50 (-10) 10 "JF LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
-    -- , fillH1L jfPu "/jfpu" $ yodaHist 50 0 1 "JF P(light)" (dsigdXpbY "P" "1")
-    -- , fillH1L jfPc "/jfpc" $ yodaHist 50 0 1 "JF P(charm)" (dsigdXpbY "P" "1")
-    -- , fillH1L jfPb "/jfpb" $ yodaHist 50 0 1 "JF P(bottom)" (dsigdXpbY "P" "1")
-    ]
+  [ hist1DDef (binD 0 5 5) "JF vertex multiplicity" (dsigdXpbY "n" "1") "/jfnvtx"
+    <$$= (jfNVtx.integralL)
+  , hist1DDef (binD 0 50 10) "JF mass [GeV]" (dsigdXpbY "m" gev) "/jfmass"
+    <$$= jfMass
+  , hist1DDef (binD 0 10 10) "JF single track multiplicity" (dsigdXpbY "n" "1") "/jfnsingtrks"
+    <$$= (jfNSingleTrks.integralL)
+  , hist1DDef (binD 0 10 10) "JF vertex track multiplicity" (dsigdXpbY "n" "1") "/jfntrksatvtx"
+    <$$= (jfNTrksAtVtx.integralL)
+  , hist1DDef (binD 0 50 1) "JF energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1") "/jfefrac"
+    <$$= jfEfrac
+  , hist1DDef (binD 0 20 20) "JF n2tpair" (dsigdXpbY "n" "1") "/jfn2tpair"
+    <$$= (jfN2TPair.integralL)
+  , hist1DDef (binD (-10) 50 10) "JF LLR" (dsigdXpbY "\\mathrm{LLR}" "1") "/jfllr"
+    <$$= jfLLR
+  -- , fillH1L jfPu "/jfpu" $ yodaHist 50 0 1 "JF P(light)" (dsigdXpbY "P" "1")
+  -- , fillH1L jfPc "/jfpc" $ yodaHist 50 0 1 "JF P(charm)" (dsigdXpbY "P" "1")
+  -- , fillH1L jfPb "/jfpb" $ yodaHist 50 0 1 "JF P(bottom)" (dsigdXpbY "P" "1")
+  ]
 
-    where
-        integralL :: Num a => Getter Int a
-        integralL = to fromIntegral
+  where
+    -- don't know why this is necessary...
+    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
+    integralL = to fromIntegral
 
 
 readJFs :: MonadIO m => TR m (ZipList JFInfo)
 readJFs = do
-    nvtx <- readI "jetsJetFitter_nVTX"
-    mass <- fmap (/ 1e3) <$> readD "jetsJetFitter_mass"
-    nsts <- readI "jetsJetFitter_nSingleTracks"
-    ntsav <- readI "jetsJetFitter_nTracksAtVtx"
-    efrac <- readD "jetsJetFitter_energyFraction"
-    n2tpair <- readI "jetsJetFitter_N2Tpair"
-    llr <- readD "jetsJetFitter_loglikelihoodratio"
-    pu <- readD "jetsJetFitter_pu"
-    pc <- readD "jetsJetFitter_pc"
-    pb <- readD "jetsJetFitter_pb"
+  nvtx <- readI "jetsJetFitter_nVTX"
+  mass <- fmap (/ 1e3) <$> readD "jetsJetFitter_mass"
+  nsts <- readI "jetsJetFitter_nSingleTracks"
+  ntsav <- readI "jetsJetFitter_nTracksAtVtx"
+  efrac <- readD "jetsJetFitter_energyFraction"
+  n2tpair <- readI "jetsJetFitter_N2Tpair"
+  llr <- readD "jetsJetFitter_loglikelihoodratio"
+  pu <- readD "jetsJetFitter_pu"
+  pc <- readD "jetsJetFitter_pc"
+  pb <- readD "jetsJetFitter_pb"
 
-    return $ JFInfo
-        <$> nvtx
-        <*> mass
-        <*> nsts
-        <*> ntsav
-        <*> efrac
-        <*> n2tpair
-        <*> llr
-        <*> pu
-        <*> pc
-        <*> pb
+  return $ JFInfo
+    <$> nvtx
+    <*> mass
+    <*> nsts
+    <*> ntsav
+    <*> efrac
+    <*> n2tpair
+    <*> llr
+    <*> pu
+    <*> pc
+    <*> pb
 
-    where
-        readD n = fmap float2Double <$> readBranch n
-        readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
+  where
+    readD n = fmap float2Double <$> readBranch n
+    readI n = fmap (fromEnum :: CInt -> Int) <$> readBranch n
 
 
 -- TODO

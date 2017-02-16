@@ -33,11 +33,11 @@ import           Data.YODA.Obj            as X
 
 type Fill a = F.Fold (a, Double) YodaFolder
 
-channel :: T.Text -> (a -> Bool) -> F.Fold a YodaFolder -> F.Fold a YodaFolder
-channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector f) fills
+channel :: T.Text -> (a -> Bool) -> Fill a -> Fill a
+channel n f fills = M.mapKeysMonotonic (n <>) <$> F.handles (selector (f.fst)) fills
 
 
-channels :: [(T.Text, a -> Bool)] -> F.Fold a YodaFolder -> F.Fold a YodaFolder
+channels :: [(T.Text, a -> Bool)] -> Fill a -> Fill a
 channels fns fills = mconcat $ uncurry channel <$> fns <*> pure fills
 
 

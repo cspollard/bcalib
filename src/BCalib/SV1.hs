@@ -1,28 +1,29 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.SV1 where
 
-import GHC.Float
-import GHC.Generics hiding (to)
+import           Control.Applicative (ZipList (..))
+import           Data.Map.Strict     as M
+import           GHC.Float
+import           GHC.Generics        hiding (to)
 
-import Data.Map.Strict as M
-
-import BCalib.Histograms
+import           BCalib.Histograms
+import           Data.TTree
 
 
 data SV1Info =
-    SV1Info
-        { _sv1MSV :: Double
-        , _sv1NGTJet :: Int
-        , _sv1NGTSV :: Int
-        , _sv1Efrac :: Double
-        , _sv1LLR :: Double
-        , _sv1Pu :: Double
-        , _sv1Pc :: Double
-        , _sv1Pb :: Double
-        } deriving (Generic, Show)
+  SV1Info
+    { _sv1MSV    :: Double
+    , _sv1NGTJet :: Int
+    , _sv1NGTSV  :: Int
+    , _sv1Efrac  :: Double
+    , _sv1LLR    :: Double
+    , _sv1Pu     :: Double
+    , _sv1Pc     :: Double
+    , _sv1Pb     :: Double
+    } deriving (Generic, Show)
 
 
 -- TODO
@@ -30,19 +31,23 @@ data SV1Info =
 
 sv1Hs :: Fill SV1Info
 sv1Hs = M.unions <$> sequenceA
-    [ fillH1L sv1MSV "/sv1msv" $ yodaHist 50 0 10 "SV1 SV mass [GeV]" (dsigdXpbY "m" gev)
-    -- , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
-    , fillH1L (sv1NGTSV.integralL) "/sv1ngtsv" $ yodaHist 10 0 10 "SV1 SV NGT" (dsigdXpbY "n" "1")
-    , fillH1L sv1Efrac "/sv1efrac" $ yodaHist 50 0 1 "SV1 energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1")
-    -- , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-5) 15 "SV1 LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
-    -- , fillH1L sv1Pu "/sv1pu" $ yodaHist 50 0 1 "SV1 P(light)" (dsigdXpbY "P" "1")
-    -- , fillH1L sv1Pc "/sv1pc" $ yodaHist 50 0 1 "SV1 P(charm)" (dsigdXpbY "P" "1")
-    -- , fillH1L sv1Pb "/sv1pb" $ yodaHist 50 0 1 "SV1 P(bottom)" (dsigdXpbY "P" "1")
-    ]
+  [ hist1DDef (binD 0 50 10) "SV1 SV mass [GeV]" (dsigdXpbY "m" gev) "/sv1msv"
+    <$$= sv1MSV
+  -- , fillH1L (sv1NGTJet.integralL) "/sv1ngtj" $ yodaHist 10 0 10 "SV1 Jet NGT" (dsigdXpbY "n" "1")
+  , hist1DDef (binD 0 10 10) "SV1 SV NGT" (dsigdXpbY "n" "1") "/sv1ngtsv"
+    <$$= (sv1NGTSV.integralL)
+  , hist1DDef (binD 0 50 1) "SV1 energy fraction" (dsigdXpbY "\\mathrm{fraction}" "1") "/sv1efrac"
+    <$$= sv1Efrac
+  -- , fillH1L sv1LLR "/sv1llr" $ yodaHist 50 (-5) 15 "SV1 LLR" (dsigdXpbY "\\mathrm{LLR}" "1")
+  -- , fillH1L sv1Pu "/sv1pu" $ yodaHist 50 0 1 "SV1 P(light)" (dsigdXpbY "P" "1")
+  -- , fillH1L sv1Pc "/sv1pc" $ yodaHist 50 0 1 "SV1 P(charm)" (dsigdXpbY "P" "1")
+  -- , fillH1L sv1Pb "/sv1pb" $ yodaHist 50 0 1 "SV1 P(bottom)" (dsigdXpbY "P" "1")
+  ]
 
-    where
-        integralL :: Num a => Getter Int a
-        integralL = to fromIntegral
+  where
+    -- don't know why this is necessary...
+    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
+    integralL = to fromIntegral
 
 
 readSV1s :: MonadIO m => TR m (ZipList SV1Info)

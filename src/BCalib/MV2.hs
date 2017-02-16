@@ -1,53 +1,55 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module BCalib.MV2 where
 
-import GHC.Float
-import GHC.Generics hiding (to)
+import           Control.Applicative (ZipList (..))
+import           Data.Map.Strict     as M
+import           GHC.Float
+import           GHC.Generics        hiding (to)
 
-import Data.Map.Strict as M
-
-import BCalib.Histograms
+import           BCalib.Histograms
+import           Data.TTree
 
 
 data MV2Info =
-    MV2Info
-        { _mv2c00 :: Double
-        , _mv2c10 :: Double
-        , _mv2c20 :: Double
-        , _mv2c100 :: Double
-        , _mv2cl100 :: Double
-        } deriving (Generic, Show)
+  MV2Info
+    { _mv2c00   :: Double
+    , _mv2c10   :: Double
+    , _mv2c20   :: Double
+    , _mv2c100  :: Double
+    , _mv2cl100 :: Double
+    } deriving (Generic, Show)
 
 mv2Hs :: Fill MV2Info
-mv2Hs = M.unions <$> sequenceA 
-    [ fillH1L mv2c00 "/mv2c00" $ yodaHist 50 (-1) 1 "MV2c00" (dsigdXpbY "MV2" "1")
-    , fillH1L mv2c10 "/mv2c10" $ yodaHist 50 (-1) 1 "MV2c10" (dsigdXpbY "MV2" "1")
-    , fillH1L mv2c20 "/mv2c20" $ yodaHist 50 (-1) 1 "MV2c20" (dsigdXpbY "MV2" "1")
-    -- , fillH1L mv2c100 "/mv2c100" $ yodaHist 50 (-1) 1 "MV2c100" (dsigdXpbY "MV2" "1")
-    -- , fillH1L mv2cl100 "/mv2cl100" $ yodaHist 50 (-1) 1 "MV2cl100" (dsigdXpbY "MV2" "1")
-    ]
+mv2Hs = M.unions <$> sequenceA
+  [ hist1DDef (binD (-1) 50 1) "MV2c00" (dsigdXpbY "MV2" "1") "/mv2c00"
+    <$$= mv2c00
+  , hist1DDef (binD (-1) 50 1) "MV2c10" (dsigdXpbY "MV2" "1") "/mv2c10"
+    <$$= mv2c10
+  , hist1DDef (binD (-1) 50 1) "MV2c20" (dsigdXpbY "MV2" "1") "/mv2c20"
+    <$$= mv2c20
+  ]
 
 
 readMV2s :: MonadIO m => TR m (ZipList MV2Info)
 readMV2s = do
-    c00 <- readD "jetsMV2c00"
-    c10 <- readD "jetsMV2c10"
-    c20 <- readD "jetsMV2c20"
-    c100 <- readD "jetsMV2c100"
-    cl100 <- readD "jetsMV2cl100"
+  c00 <- readD "jetsMV2c00"
+  c10 <- readD "jetsMV2c10"
+  c20 <- readD "jetsMV2c20"
+  c100 <- readD "jetsMV2c100"
+  cl100 <- readD "jetsMV2cl100"
 
-    return $ MV2Info
-        <$> c00
-        <*> c10
-        <*> c20
-        <*> c100
-        <*> cl100
+  return $ MV2Info
+    <$> c00
+    <*> c10
+    <*> c20
+    <*> c100
+    <*> cl100
 
-    where
-        readD n = fmap float2Double <$> readBranch n
+  where
+    readD n = fmap float2Double <$> readBranch n
 
 
 -- TODO
