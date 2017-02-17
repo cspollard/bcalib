@@ -9,7 +9,7 @@ import           Codec.Compression.GZip    (decompress)
 import qualified Control.Foldl             as F
 import qualified Data.ByteString.Lazy      as BS
 import           Data.Histogram.Generic    (bmap)
-import qualified Data.IntMap               as IM
+import qualified Data.IntMap.Strict        as IM
 import qualified Data.Map.Strict           as M
 import           Data.Maybe                (fromMaybe)
 import           Data.Serialize            (decodeLazy)
@@ -109,41 +109,53 @@ main = do
   let immc = sans 0 . sans dsidOTHER $ im'''
 
   -- light flavor
-  let iml = flip (over traverse) immc . M.filterWithKey $
-                  \k _ -> "/light/" `T.isInfixOf` k
-  let iml' = flip (over traverse) iml $
-                  M.mapKeysMonotonic (T.replace "/light/" "/allJetFlavs/")
-                  . (traverse.annots.at "Title" ?~ "light")
+  let iml =
+        flip (over traverse) immc . M.filterWithKey
+          $ \k _ -> "/light/" `T.isInfixOf` k
+      iml' =
+        flip (over traverse) iml
+          $ M.mapKeysMonotonic (T.replace "/light/" "/allJetFlavs/")
+            . (traverse.annots.at "Title" ?~ "light")
 
-  iforM_ iml' $
-      \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_light.yoda")
-                    (ifoldMap printYodaObj hs)
+  iforM_ iml'
+    $ \ds hs ->
+      T.writeFile
+        (outfolder args ++ '/' : show ds ++ "_light.yoda")
+        (ifoldMap printYodaObj hs)
 
   -- charm
   -- need to add light contribution for stack plots.
-  let imc = flip (over traverse) immc . M.filterWithKey $
-                  \k _ -> "/charm/" `T.isInfixOf` k
-  let imc' = flip (over traverse) imc $
-                  M.mapKeysMonotonic (T.replace "/charm/" "/allJetFlavs/")
-                  . (traverse.annots.at "Title" ?~ "charm")
-  let imc'' = IM.intersectionWith mergeYF imc' iml'
+  let imc =
+        flip (over traverse) immc . M.filterWithKey
+          $ \k _ -> "/charm/" `T.isInfixOf` k
+      imc' =
+        flip (over traverse) imc
+          $ M.mapKeysMonotonic (T.replace "/charm/" "/allJetFlavs/")
+            . (traverse.annots.at "Title" ?~ "charm")
+      imc'' = IM.intersectionWith mergeYF imc' iml'
 
-  iforM_ imc'' $
-      \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_charm.yoda")
-                  (ifoldMap printYodaObj hs)
+  iforM_ imc''
+    $ \ds hs ->
+        T.writeFile
+          (outfolder args ++ '/' : show ds ++ "_charm.yoda")
+          (ifoldMap printYodaObj hs)
 
   -- bottom
   -- use allJetFlavs since we're stacking on top of light and charm.
-  let imb = flip (over traverse) immc . M.filterWithKey $
-                  \k _ -> "/bottom/" `T.isInfixOf` k
-  let imb' = flip (over traverse) imb $
-                  M.mapKeysMonotonic (T.replace "/bottom/" "/allJetFlavs/")
-                  . (traverse.annots.at "Title" ?~ "bottom")
-  let imb'' = IM.intersectionWith mergeYF imb' imc''
+  let imb =
+        flip (over traverse) immc . M.filterWithKey
+          $ \k _ -> "/bottom/" `T.isInfixOf` k
+      imb' =
+        flip (over traverse) imb
+          $ M.mapKeysMonotonic (T.replace "/bottom/" "/allJetFlavs/")
+            . (traverse.annots.at "Title" ?~ "bottom")
+      imb'' = IM.intersectionWith mergeYF imb' imc''
 
-  iforM_ imb'' $
-      \ds hs -> T.writeFile (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
-                  (ifoldMap printYodaObj hs)
+  iforM_ imb''
+    $ \ds hs ->
+      T.writeFile
+      (outfolder args ++ '/' : show ds ++ "_bottom.yoda")
+      (ifoldMap printYodaObj hs)
 
 
 dsidOTHER :: Int
