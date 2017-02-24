@@ -9,7 +9,6 @@ module BCalib.Lepton
   ) where
 
 import           Control.Lens
-
 import           Foreign.C.Types   (CInt)
 import           GHC.Float         (float2Double)
 import           GHC.Generics

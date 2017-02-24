@@ -191,6 +191,9 @@ decodeFile xsecs lu rxp f = do
         Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
 
 
+-- NB: we lose overflow info here
+-- since we don't have a bin center
+-- for the overflows.
 reweightLF :: YodaObj -> YodaObj
 reweightLF = over (noted._H1DD) (bmap f)
   where

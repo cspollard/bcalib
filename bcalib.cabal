@@ -25,6 +25,7 @@ library
                      , BCalib.JF
                      , BCalib.MV2
                      , BCalib.SV1
+                     , BCalib.Systematics
   other-modules:
   other-extensions:
   build-depends:       base == 4.9.*

@@ -5,16 +5,14 @@ module BCalib.Event
   ( module X
   , Event(..)
   , runNumber, eventNumber, mu
-  , leptons, jets, met, eventWeight
+  , leptons, jets, met
   , eventHs
-  , withWeight
   , lepFlavorChannels
   , lepChargeChannels
   , nJetChannels
   , overlapRemoval
   ) where
 
-import           Control.Arrow     ((&&&))
 import qualified Control.Foldl     as F
 import           Control.Lens
 import           Data.Bifunctor
@@ -35,7 +33,6 @@ data Event =
     , _leptons     :: (Lepton, Lepton)
     , _jets        :: [Jet]
     , _met         :: PtEtaPhiE
-    , _eventWeight :: Double
     } deriving (Generic, Show)
 
 
@@ -58,9 +55,6 @@ jets = lens _jets $ \e x -> e { _jets = x }
 met :: Lens' Event PtEtaPhiE
 met = lens _met $ \e x -> e { _met = x }
 
-eventWeight :: Lens' Event Double
-eventWeight = lens _eventWeight $ \e x -> e { _eventWeight = x }
-
 overlapRemoval :: Event -> Event
 overlapRemoval evt = over jets (filter filt) evt
   where
@@ -68,36 +62,34 @@ overlapRemoval evt = over jets (filter filt) evt
     filt = not . any (< 0.2) . traverse lvDREta leps
 
 
-distribute :: Applicative f => (f a, b) -> f (a, b)
-distribute (fs, x) = (,) <$> fs <*> pure x
-
 jetsHs :: Fill Event
 jetsHs = (M.unions <$> sequenceA [ allHs, jet0Hs, jet1Hs ]) <$$= jets
 
   where
-    allHs :: Fill [Jet]
     allHs =
       (nH 10 `mappend` F.handles (to distribute . folded) jetHs)
         <&> (M.mapKeysMonotonic ("/jets" <>) . over (traverse.xlabel) ("jet " <>))
 
-    jet0Hs :: Fill [Jet]
     jet0Hs =
       F.handles (to distribute . ix 0) jetHs
         <&> (M.mapKeysMonotonic ("/jet0" <>) . over (traverse.xlabel) ("leading jet " <>))
 
-    jet1Hs :: Fill [Jet]
     jet1Hs =
       F.handles (to distribute . ix 1) jetHs
         <&> (M.mapKeysMonotonic ("/jet1" <>) . over (traverse.xlabel) ("subleading jet " <>))
 
+    distribute (fs, x) = (,) <$> fs <*> pure x
 
-distributeT :: ((a, a), b) -> ((a, b), (a, b))
-distributeT ((e, f), x) = ((e, x), (f, x))
+
 
 lepsHs :: Fill Event
 lepsHs =
   F.handles (to (first $ view leptons) . to distributeT . both) lepHs
     <&> (M.mapKeysMonotonic ("/leps" <>) . over (traverse.xlabel) ("lepton " <>))
+
+  where
+    distributeT ((e, f), x) = ((e, x), (f, x))
+
 
 muH :: Fill Event
 muH =
@@ -115,17 +107,16 @@ readMET m p = do
   phi <- float2Double <$> readBranch p
   return $ PtEtaPhiE et 0 phi et
 
-weight :: MonadIO m => TR m Double
-weight = float2Double . product
-  <$> sequence
-    [ readBranch "eventWeight"
-    -- TODO
-    -- TODO
-    -- some of these are NaNs.
-    -- , readBranch "leptonSF"
-    -- , readBranch "trigSF"
-    ]
-
+-- weights :: MonadIO m => TR m (M.Map T.Text Double)
+-- weights = M.singleton "nominal" . float2Double . product
+--   <$> sequence
+--     [ readBranch "eventWeight"
+--     -- TODO
+--     -- TODO
+--     -- some of these are NaNs.
+--     -- , readBranch "leptonSF"
+--     -- , readBranch "trigSF"
+--     ]
 
 instance FromTTree Event where
   fromTTree = do
@@ -137,7 +128,6 @@ instance FromTTree Event where
       <*> readLeptons
       <*> readJets isData
       <*> readMET "MET" "METphi"
-      <*> weight
 
     where
       ci2i :: CInt -> Int
@@ -145,9 +135,6 @@ instance FromTTree Event where
 
       convMu False = id
       convMu True  = (/1.09)
-
-withWeight :: Event -> (Event, Double)
-withWeight = id &&& view eventWeight
 
 
 leptonFlavors :: (LFlavor, LFlavor) -> Event -> Bool

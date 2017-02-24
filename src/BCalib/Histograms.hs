@@ -18,7 +18,7 @@ module BCalib.Histograms
     ) where
 
 import qualified Control.Foldl            as F
-import           Control.Lens             as X
+import           Control.Lens
 import           Data.Bifunctor
 import qualified Data.Histogram.Generic   as G
 import qualified Data.Map.Strict          as M
@@ -89,7 +89,7 @@ etaH =
       (binD (-3) 39 3)
       "$\\eta$"
       (dsigdXpbY "\\eta" "{\\mathrm rad}")
-      "/etat"
+      "/eta"
 
 
 -- generic histograms for a lorentz vector

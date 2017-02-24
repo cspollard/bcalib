@@ -22,6 +22,7 @@ import           System.IO              (hFlush, stdout)
 
 import           BCalib.Event
 import           BCalib.Histograms
+import           BCalib.Systematics
 import           Data.TFile
 import           Data.TH1
 import           Data.TTree
@@ -42,9 +43,12 @@ main = do
   fns <- filter (not . null) . lines <$> readFile (infiles args)
   let fnl = L.select fns :: L.ListT IO String
 
-  let f = F.FoldM fillFile (return Nothing) return
+  let f tn ws = F.FoldM (fillFile tn ws) (return Nothing) return
 
-  (imf :: Maybe (Int, Double, Fill Event)) <- F.impurely L.foldM f fnl
+  (imf :: Map String (Maybe (Int, Double, Fill Event))) <-
+    traverse (\(tn, ws) -> F.impurely L.foldM (f tn ws) fnl) allSysts
+
+  let imf' = ifoldlOf traversed (\s m m' -> maybe m' (M.insert m') )
   let imh = over (_Just._3') extract imf
 
   putStrLn ("writing to file " ++ outfile args) >> hFlush stdout
@@ -52,14 +56,21 @@ main = do
   BS.writeFile (outfile args) (compress . encodeLazy . over (_Just._3') (M.mapKeysMonotonic ("/bcalib" <>)) $ imh)
 
 
-fillFile :: Maybe (Int, Double, Fill Event) -> String -> IO (Maybe (Int, Double, Fill Event))
-fillFile m fn = do
+fillFile
+  :: String
+  -> [String]
+  -> Maybe (Int, Double, Fill Event)
+  -> String
+  -> IO (Maybe (Int, Double, Fill Event))
+fillFile tn ws m fn = do
   putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
   -- check whether or not this is a data file
   let (dsid :: Int) =
           if "data15_13TeV" `isInfixOf` fn || "data16_13TeV" `isInfixOf` fn
             then 0
+            -- this works on files of the form
+            -- /blah/blah/blah/blah.blah.blah.DSID.blah/blah
             else
               fn
                 & read . T.unpack . (!! 3)
@@ -70,25 +81,29 @@ fillFile m fn = do
   h <- tfileGet f "MetaData_EventCount"
   ninitial <- entryd h 4
 
-  t <- ttree f "FlavourTagging_Nominal"
+  t <- ttree f tn
 
   -- deal with possible missing trees
   nt <- isNullTree t
   let l =
         if nt
           then (L.empty :: L.ListT IO (Event, Double))
-          else withWeight . overlapRemoval <$> project t
+          else runTTreeL tmp t
+      tmp = do
+        evt <- overlapRemoval <$> fromTTree
+        w <- readWeight ws
+        return (evt, w)
 
   case m of
     Nothing -> do
       hs <- F.purely L.fold (duplicate defHs) l <* tfileClose f
-      hs `seq` return (Just (dsid, ninitial, hs))
+      return (Just (dsid, ninitial, hs))
 
     Just (dsid', n, hs') -> do
       when (dsid /= dsid') $ error "attempting to analyse different dsids in one run!!!"
 
       hs <- F.purely L.fold (duplicate hs') l <* tfileClose f
-      hs `seq` return (Just (dsid, n+ninitial, hs))
+      return (Just (dsid, n+ninitial, hs))
 
 
   where
