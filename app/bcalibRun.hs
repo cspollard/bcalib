@@ -42,13 +42,12 @@ main = do
 
   fns <- filter (not . null) . lines <$> readFile (infiles args)
   let fnl = L.select fns :: L.ListT IO String
+      f tn ws = F.FoldM (fillFile tn ws) (return Nothing) return
 
-  let f tn ws = F.FoldM (fillFile tn ws) (return Nothing) return
+  (imf :: Maybe (Int, Double, Fill Event)) <-
+    F.impurely L.foldM (f "FlavourTagging_Nominal" ["eventWeight"]) fnl
 
-  (imf :: Map String (Maybe (Int, Double, Fill Event))) <-
-    traverse (\(tn, ws) -> F.impurely L.foldM (f tn ws) fnl) allSysts
-
-  let imf' = ifoldlOf traversed (\s m m' -> maybe m' (M.insert m') )
+  -- let imf' = ifoldlOf traversed (\s m m' -> maybe m (M.union m') )
   let imh = over (_Just._3') extract imf
 
   putStrLn ("writing to file " ++ outfile args) >> hFlush stdout

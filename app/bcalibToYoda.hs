@@ -7,6 +7,7 @@ module Main where
 
 import           Codec.Compression.GZip    (decompress)
 import qualified Control.Foldl             as F
+import           Control.Lens
 import qualified Data.ByteString.Lazy      as BS
 import           Data.Histogram.Generic    (bmap)
 import qualified Data.IntMap.Strict        as IM

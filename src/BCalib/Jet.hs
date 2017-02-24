@@ -12,7 +12,6 @@ module BCalib.Jet
 
 import           Control.Applicative    (ZipList (..))
 import           Control.Lens
-import           Control.Lens
 import           Data.List              (sortOn)
 import           Data.Ord               (Down (..))
 import           Data.Text              as T
