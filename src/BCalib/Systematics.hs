@@ -6,6 +6,7 @@ module BCalib.Systematics where
 import           Data.Map.Strict as M
 import           Data.Semigroup
 import           Data.Text       as T
+import           GHC.Float
 
 import           BCalib.Event
 import           Data.TTree
@@ -22,7 +23,7 @@ data Systematic =
     } deriving Show
 
 readWeight :: MonadIO m => [WeightName] -> TR m Double
-readWeight wns = product <$> traverse readBranch wns
+readWeight wns = float2Double . product <$> traverse readBranch wns
 
 nominalWeight :: Map SystName [WeightName]
 nominalWeight = M.singleton "nominal" ["eventWeight"]
