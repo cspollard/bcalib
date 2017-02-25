@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 
 module BCalib.Event
   ( module X
@@ -11,18 +12,20 @@ module BCalib.Event
   , lepChargeChannels
   , nJetChannels
   , overlapRemoval
+  , withWeights
   ) where
 
-import qualified Control.Foldl     as F
+import qualified Control.Foldl      as F
 import           Control.Lens
 import           Data.Bifunctor
-import qualified Data.Map.Strict   as M
-import           GHC.Float         (float2Double)
-import           GHC.Generics      (Generic)
+import qualified Data.Map.Strict    as M
+import           GHC.Float          (float2Double)
+import           GHC.Generics       (Generic)
 
 import           BCalib.Histograms
-import           BCalib.Jet        as X
-import           BCalib.Lepton     as X
+import           BCalib.Jet         as X
+import           BCalib.Lepton      as X
+import           BCalib.Systematics
 import           Data.TTree
 
 data Event =
@@ -169,3 +172,13 @@ nJetChannels =
     -- , ("/4pjet", (>= 4) . views jets length)
     -- , ("/2pjet", (>= 2) . views jets length)
     ]
+
+withWeights :: Fill a -> F.Fold (a, SystMap Double) (SystMap YodaFolder)
+withWeights (F.Fold comb start done) = F.Fold comb' start' done'
+  where
+    start' = M.empty
+    -- comb' :: M.Map T.Text x -> (a, M.Map T.Text Double) -> M.Map T.Text x
+    comb' mh (x, mw) = foldl (\h (k, xw) -> M.alter (f xw) k h) mh (M.toList $ (x,) <$> mw)
+    f xw Nothing  = Just $ comb start xw
+    f xw (Just h) = Just $ comb h xw
+    done' = fmap done

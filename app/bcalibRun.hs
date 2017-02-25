@@ -13,7 +13,6 @@ import           Control.Monad          (when)
 import qualified Data.ByteString.Lazy   as BS
 import           Data.List              (isInfixOf)
 import qualified Data.Map.Strict        as M
-import           Data.Semigroup         ((<>))
 import           Data.Serialize         (encodeLazy)
 import qualified Data.Text              as T
 import qualified List.Transformer       as L
@@ -42,26 +41,26 @@ main = do
 
   fns <- filter (not . null) . lines <$> readFile (infiles args)
   let fnl = L.select fns :: L.ListT IO String
-      f tn ws = F.FoldM (fillFile tn ws) (return Nothing) return
+      f tn readws = F.FoldM (fillFile tn readws) (return Nothing) return
 
-  (imf :: Maybe (Int, Double, Fill Event)) <-
-    F.impurely L.foldM (f "FlavourTagging_Nominal" ["eventWeight"]) fnl
+  (imf :: Maybe (Int, Double, F.Fold (Event, SystMap Double) (SystMap YodaFolder))) <-
+    F.impurely L.foldM (f "FlavourTagging_Nominal" weightSysts) fnl
 
   -- let imf' = ifoldlOf traversed (\s m m' -> maybe m (M.union m') )
   let imh = over (_Just._3') extract imf
 
   putStrLn ("writing to file " ++ outfile args) >> hFlush stdout
 
-  BS.writeFile (outfile args) (compress . encodeLazy . over (_Just._3') (M.mapKeysMonotonic ("/bcalib" <>)) $ imh)
+  BS.writeFile (outfile args) (compress . encodeLazy $ imh)
 
 
 fillFile
   :: String
-  -> [String]
-  -> Maybe (Int, Double, Fill Event)
+  -> TR IO (M.Map SystName Double)
+  -> Maybe (Int, Double, F.Fold (Event, SystMap Double) (SystMap YodaFolder))
   -> String
-  -> IO (Maybe (Int, Double, Fill Event))
-fillFile tn ws m fn = do
+  -> IO (Maybe (Int, Double, F.Fold (Event, SystMap Double) (SystMap YodaFolder)))
+fillFile tn readws m fn = do
   putStrLn ("analyzing file " ++ fn) >> hFlush stdout
 
   -- check whether or not this is a data file
@@ -86,12 +85,15 @@ fillFile tn ws m fn = do
   nt <- isNullTree t
   let l =
         if nt
-          then (L.empty :: L.ListT IO (Event, Double))
+          then (L.empty :: L.ListT IO (Event, SystMap Double))
           else runTTreeL tmp t
       tmp = do
         evt <- overlapRemoval <$> fromTTree
-        w <- readWeight ws
-        return (evt, w)
+        if dsid == 0
+          then return (evt, M.singleton "data" 1)
+          else do
+            ws <- readws
+            return (evt, ws)
 
   case m of
     Nothing -> do
@@ -99,12 +101,12 @@ fillFile tn ws m fn = do
       return (Just (dsid, ninitial, hs))
 
     Just (dsid', n, hs') -> do
-      when (dsid /= dsid') $ error "attempting to analyse different dsids in one run!!!"
+      when (dsid /= dsid') $ error "attempting to analyze different dsids in one run!!!"
 
       hs <- F.purely L.fold (duplicate hs') l <* tfileClose f
       return (Just (dsid, n+ninitial, hs))
 
 
   where
-    defHs :: Fill Event
-    defHs = lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs
+    defHs :: F.Fold (Event, SystMap Double) (SystMap YodaFolder)
+    defHs = withWeights . lepFlavorChannels . lepChargeChannels . nJetChannels $ eventHs

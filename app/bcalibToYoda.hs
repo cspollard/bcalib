@@ -23,6 +23,7 @@ import           Text.Regex.Base.RegexLike
 import           Text.Regex.Posix.String
 
 import           BCalib.Histograms         hiding (option, (<>))
+import           BCalib.Systematics
 import           Data.Atlas.CrossSections
 import           Data.Atlas.ProcessInfo
 
@@ -167,22 +168,23 @@ decodeFile :: IM.IntMap Double -> Double -> Maybe String -> String -> IO (Maybe 
 decodeFile xsecs lu rxp f = do
   putStrLn ("decoding file " ++ f) >> hFlush stdout
   e <- decodeLazy . decompress <$> BS.readFile f ::
-              IO (Either String (Maybe (Int, Double, YodaFolder)))
+    IO (Either String (Maybe (Int, Double, SystMap YodaFolder)))
 
   case e of
-       Left _ -> error $ "failed to decode file " ++ f
+    Left _ -> error $ "failed to decode file " ++ f
 
-       Right Nothing -> return Nothing
-       Right (Just (dsid, sumwgt, hs)) ->
-        return $
-          if processTitle dsid == "other"
-            then Nothing
-            else Just $
-              if dsid == 0
-                then (0, over (noted._H1DD) (scaling $ 1.0/lu) <$> filt hs)
-                else if dsid < 410000 || dsid > 410004
-                  then (dsidOTHER, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
-                  else (dsid, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> filt hs)
+    Right Nothing -> return Nothing
+    Right (Just (dsid, sumwgt, hs)) -> do
+      let hs' = collapseSysts . fmap filt $ hs
+      return
+        $ if processTitle dsid == "other"
+          then Nothing
+          else Just $
+            if dsid == 0
+              then (0, over (noted._H1DD) (scaling $ 1.0/lu) <$> hs')
+              else if dsid < 410000 || dsid > 410004
+                then (dsidOTHER, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> hs')
+                else (dsid, over (noted._H1DD) (scaling $ xsecs IM.! dsid/sumwgt) <$> hs')
 
   where
     filt :: YodaFolder -> YodaFolder
@@ -190,6 +192,9 @@ decodeFile xsecs lu rxp f = do
       case rxp of
         Nothing -> id
         Just s -> M.filterWithKey $ \k _ -> matchTest (makeRegex s :: Regex) . T.unpack $ k
+
+    collapseSysts :: SystMap YodaFolder -> YodaFolder
+    collapseSysts = M.foldrWithKey (\k yf yf' -> yf' <> M.mapKeysMonotonic (T.cons '/' k <>) yf) M.empty
 
 
 -- NB: we lose overflow info here

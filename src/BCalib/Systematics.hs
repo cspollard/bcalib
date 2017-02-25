@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 
@@ -5,31 +6,36 @@ module BCalib.Systematics where
 
 import           Data.Map.Strict as M
 import           Data.Semigroup
-import           Data.Text       as T
+import qualified Data.Text       as T
 import           GHC.Float
 
-import           BCalib.Event
 import           Data.TTree
 
-type TreeName = Text
-type SystName = Text
+type TreeName = T.Text
+type SystName = T.Text
 type WeightName = String
+
+type SystMap = M.Map SystName
 
 data Systematic =
   Systematic
     { systName     :: SystName
     , systTreeName :: TreeName
     , systWeights  :: [WeightName]
-    } deriving Show
+    } deriving (Show, Eq, Ord)
 
-readWeight :: MonadIO m => [WeightName] -> TR m Double
-readWeight wns = float2Double . product <$> traverse readBranch wns
+weightSysts :: MonadIO m => TR m (Map SystName Double)
+weightSysts = sequence
+  [ ("nominal", float2Double <$> readBranch "eventWeight")
+  , ("pileup_up", puwup)
+  ]
 
-nominalWeight :: Map SystName [WeightName]
-nominalWeight = M.singleton "nominal" ["eventWeight"]
-
-weightSysts :: Map SystName [WeightName]
-weightSysts = nominalWeight
+  where
+    puwup = do
+      w <- readBranch "eventWeight"
+      puw <- readBranch "PileupWeight"
+      wup <- head <$> readBranch "PileupWeightSys"
+      return . float2Double $ w * wup / puw
 
 treeSysts :: Map SystName TreeName
 treeSysts =
@@ -38,16 +44,3 @@ treeSysts =
       [ "JET_EffectiveNP_1__1up" ]
 
   where f s = (s, "FlavourTagging_" <> s)
-
-readWeights :: MonadIO m => Map SystName [WeightName] -> TR m (Map SystName Double)
-readWeights = traverse readWeight
-
-systReads :: MonadIO m => Map SystName [WeightName] -> TR m (Map SystName (Event, Double))
-systReads ws = do
-  weights <- readWeights ws
-  evt <- fromTTree
-  return $ fmap (evt,) weights
-
-
-allSysts :: Map String (String, [String])
-allSysts = M.singleton "nominal" ("FlavourTagging_Nominal", ["eventWeight"])
