@@ -8,13 +8,11 @@ module BCalib.Lepton
   , lepHs
   ) where
 
-import           Control.Lens
-import           Foreign.C.Types   (CInt)
-import           GHC.Float         (float2Double)
+import           Foreign.C.Types (CInt)
+import           GHC.Float       (float2Double)
 import           GHC.Generics
 
-import           BCalib.Histograms
-import           Data.TTree
+import           BCalib.Imports
 
 
 data LFlavor = Electron | Muon

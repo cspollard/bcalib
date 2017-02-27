@@ -16,10 +16,10 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     BCalib.Histograms
-                     , BCalib.Event
+  exposed-modules:     BCalib.Event
                      , BCalib.Jet
                      , BCalib.Lepton
+                     , BCalib.Imports
                      , BCalib.IP2D
                      , BCalib.IP3D
                      , BCalib.JF

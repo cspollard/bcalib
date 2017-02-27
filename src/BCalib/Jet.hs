@@ -11,7 +11,6 @@ module BCalib.Jet
   ) where
 
 import           Control.Applicative    (ZipList (..))
-import           Control.Lens
 import           Data.List              (sortOn)
 import           Data.Ord               (Down (..))
 import           Data.Text              as T
@@ -19,14 +18,13 @@ import           Foreign.C.Types        (CInt)
 import           GHC.Float              (float2Double)
 import           GHC.Generics           hiding (to)
 
-import           BCalib.Histograms
+import           BCalib.Imports
 import           BCalib.IP2D            as X
 import           BCalib.IP3D            as X
 import           BCalib.JF              as X
 import           BCalib.MV2             as X
 import           BCalib.SV1             as X
 import           Data.HEP.LorentzVector as X
-import           Data.TTree
 
 data JetFlavor = L | C | B
     deriving (Generic, Show, Eq, Ord)

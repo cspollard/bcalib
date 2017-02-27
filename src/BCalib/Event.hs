@@ -16,17 +16,15 @@ module BCalib.Event
   ) where
 
 import qualified Control.Foldl      as F
-import           Control.Lens
 import           Data.Bifunctor
 import qualified Data.Map.Strict    as M
 import           GHC.Float          (float2Double)
 import           GHC.Generics       (Generic)
 
-import           BCalib.Histograms
+import           BCalib.Imports
 import           BCalib.Jet         as X
 import           BCalib.Lepton      as X
 import           BCalib.Systematics
-import           Data.TTree
 
 data Event =
   Event

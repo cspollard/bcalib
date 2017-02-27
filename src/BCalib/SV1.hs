@@ -5,13 +5,11 @@
 module BCalib.SV1 where
 
 import           Control.Applicative (ZipList (..))
-import           Control.Lens
 import           Data.Map.Strict     as M
 import           GHC.Float
 import           GHC.Generics        hiding (to)
 
-import           BCalib.Histograms
-import           Data.TTree
+import           BCalib.Imports
 
 
 data SV1Info =

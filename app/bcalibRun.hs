@@ -7,7 +7,6 @@ module Main where
 
 import           Codec.Compression.GZip (compress)
 import qualified Control.Foldl          as F
-import           Control.Lens
 import           Control.Monad          (forM, when)
 import qualified Data.ByteString.Lazy   as BS
 import           Data.List              (isInfixOf)
@@ -19,11 +18,10 @@ import           Options.Generic
 import           System.IO              (hFlush, stdout)
 
 import           BCalib.Event
-import           BCalib.Histograms
+import           BCalib.Imports
 import           BCalib.Systematics
 import           Data.TFile
 import           Data.TH1
-import           Data.TTree
 
 
 data Args =

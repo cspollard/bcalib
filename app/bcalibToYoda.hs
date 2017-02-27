@@ -22,7 +22,7 @@ import           System.IO                 (hFlush, stdout)
 import           Text.Regex.Base.RegexLike
 import           Text.Regex.Posix.String
 
-import           BCalib.Histograms         hiding (option, (<>))
+import           BCalib.Imports            hiding (option, (<>))
 import           BCalib.Systematics
 import           Data.Atlas.CrossSections
 import           Data.Atlas.ProcessInfo
