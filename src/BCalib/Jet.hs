@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -8,34 +9,39 @@ module BCalib.Jet
   , mv2info, ip2dinfo, ip3dinfo, sv1info, jfinfo, truthFlavor
   , jetHs
   , readJets
+  , jerSyst
   ) where
 
-import           Control.Applicative    (ZipList (..))
-import           Data.List              (sortOn)
-import           Data.Ord               (Down (..))
-import           Data.Text              as T
-import           Foreign.C.Types        (CInt)
-import           GHC.Float              (float2Double)
-import           GHC.Generics           hiding (to)
+import           Control.Applicative           (ZipList (..))
+import           Control.Monad.Primitive       as X
+import           Data.Atlas.Variation          as X
+import           Data.List                     (sortOn)
+import           Data.Ord                      (Down (..))
+import           Data.Text                     as T
+import           Foreign.C.Types               (CInt)
+import           GHC.Float                     (float2Double)
+import           GHC.Generics                  hiding (to)
+import           System.Random.MWC.Probability as X
 
 import           BCalib.Imports
-import           BCalib.IP2D            as X
-import           BCalib.IP3D            as X
-import           BCalib.JF              as X
-import           BCalib.MV2             as X
-import           BCalib.SV1             as X
-import           Data.HEP.LorentzVector as X
+import           BCalib.IP2D                   as X
+import           BCalib.IP3D                   as X
+import           BCalib.JF                     as X
+import           BCalib.MV2                    as X
+import           BCalib.SV1                    as X
+import           Data.HEP.LorentzVector        as X
 
-data JetFlavor = L | C | B
+data JetFlavor = L | C | B | T
     deriving (Generic, Show, Eq, Ord)
 
 flavFromCInt :: CInt -> JetFlavor
 flavFromCInt x =
   case x of
-    5 -> B
-    4 -> C
-    0 -> L
-    _ -> error $ "bad jet flavor label: " ++ show x
+    5  -> B
+    4  -> C
+    0  -> L
+    15 -> T
+    _  -> error $ "bad jet flavor label: " ++ show x
 
 
 data Jet =
@@ -78,7 +84,6 @@ jetHs =
 
   where
     bins' :: T.Text -> (Jet -> Double) -> [Double] -> [(T.Text, Jet -> Bool)]
-
     bins' lab f (b0:b1:bs) =
       ( fixT $ lab <> "_" <> T.pack (show b0) <> "_" <> T.pack (show b1)
       , \j -> let x = f j in b0 < x && x < b1
@@ -124,6 +129,14 @@ readJets isData = do
       <*> jfs
       <*> flvs
 
+
+
+jerSyst :: PrimMonad m => Jet -> VariationT "jerSyst" (Prob m) Jet
+jerSyst j = variationT $ toPtEtaPhiE f j
+  where
+    f mom = do
+      x <- normal 0 0.05
+      return $ mom & ((lvPt *~ x) . (lvE *~ x))
 
 
 -- TODO

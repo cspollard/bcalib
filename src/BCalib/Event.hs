@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
@@ -36,6 +37,9 @@ data Event =
     , _met         :: PtEtaPhiE
     } deriving (Generic, Show)
 
+
+jerSyst' :: PrimMonad m => Event -> VariationT "jerSyst" (Prob m) Event
+jerSyst' = (jets.traverse) jerSyst
 
 -- TH doesn't work with c compilation (e.g. ttree)
 runNumber :: Lens' Event Int

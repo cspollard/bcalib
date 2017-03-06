@@ -1,15 +1,21 @@
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedLists           #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE TupleSections             #-}
 
 module BCalib.Systematics where
 
-import           Data.Map.Strict as M
-import           Data.Semigroup
-import qualified Data.Text       as T
-import           Debug.Trace
+import           Control.Monad.Trans.Class
+import           Data.Map.Strict           as M
+import           Data.Monoid
+import           Data.Proxy
+import qualified Data.Text                 as T
 import           GHC.Float
+import           GHC.TypeLits
 
+import           Data.Atlas.Variation
 import           Data.TTree
 
 type TreeName = String
@@ -18,13 +24,19 @@ type WeightName = String
 
 type SystMap = M.Map SystName
 
-nominalWeight :: MonadIO m => TR m Double
-nominalWeight = float2Double <$> readBranch "eventWeight"
+nominalWeight :: MonadIO m => VariationT "nominal" (TR m) Double
+nominalWeight = float2Double <$> lift (readBranch "eventWeight")
 
+systName :: forall s m a. KnownSymbol s => VariationT s m a -> T.Text
+systName _ = T.pack $ symbolVal p
+  where p = Proxy :: Proxy s
+
+tupV :: KnownSymbol s => VariationT s f t -> (T.Text, f t)
+tupV vsa = (systName vsa, runVariationT vsa)
 
 weightSysts :: MonadIO m => TR m (Map SystName Double)
 weightSysts = sequence
-  [ ("nominal", nominalWeight)
+  [ tupV nominalWeight
   , ("pileup_up", puwup)
   ]
 
@@ -51,7 +63,7 @@ treeSysts =
   where
     f s =
       ( "FlavourTagging_" <> s
-      , sequence $ M.singleton (T.pack s) (traceShow s . traceShowId <$> nominalWeight)
+      , sequence $ M.singleton (T.pack s) (float2Double <$> readBranch "eventWeight")
       )
 
 

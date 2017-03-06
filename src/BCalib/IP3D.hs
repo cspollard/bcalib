@@ -31,7 +31,6 @@ ip3dHs = M.unions <$> sequenceA
   ]
 
   where
-    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
     integralL = to fromIntegral
 
 

@@ -45,7 +45,6 @@ sv1Hs = M.unions <$> sequenceA
 
   where
     -- don't know why this is necessary...
-    integralL :: (Num a, Integral s, Profunctor p, Contravariant f) => Optic' p f s a
     integralL = to fromIntegral
 
 

@@ -5,6 +5,7 @@ import           Codec.Compression.GZip (compress, decompress)
 import qualified Control.Foldl          as F
 import qualified Data.ByteString.Lazy   as BS
 import qualified Data.Map.Strict        as M
+import           Data.Monoid
 import           Data.Serialize         (decodeLazy, encodeLazy)
 import qualified List.Transformer       as L
 import           Options.Applicative
